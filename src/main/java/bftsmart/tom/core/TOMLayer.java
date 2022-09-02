@@ -378,7 +378,29 @@ public final class TOMLayer extends Thread implements RequestReceiver {
      */
     public byte[] createPropose(Decision dec) {
         // Retrieve a set of pending requests from the clients manager
-        RequestList pendingRequests = clientsManager.getPendingRequests();
+        RequestList tmp = clientsManager.getPendingRequests();
+
+
+        // sort requests to put XACMLUPDATE in the front
+        RequestList pendingRequests = new RequestList();
+        RequestList restRequests = new RequestList();
+        int updateMsgNum = 0;
+        for (int i=0; i<tmp.size(); i++) {
+            switch (tmp.get(i).getReqType()) {
+                case XACML_UPDATE: {
+                    pendingRequests.add(tmp.get(i));
+                    updateMsgNum += 1;
+                }
+                case XACML_QUERY: restRequests.add(tmp.get(i));
+                default:
+                    logger.error("we have to decide non-XACML TOMMessage!");
+            }
+        }
+        for (int i=0; i<restRequests.size(); i++) {
+            pendingRequests.add(restRequests.get(i));
+        }
+        // sort requests to put XACMLUPDATE in the front, end
+
 
         logger.debug("Number of pending requets to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
 
@@ -394,7 +416,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
         logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs");
 
-        return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1);
+        return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1, controller.PAPnumber);
     }
 
     /**

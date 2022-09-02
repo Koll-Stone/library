@@ -34,6 +34,8 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Random;
+
+import org.bouncycastle.cert.ocsp.Req;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,6 +101,7 @@ public class ClientsManager {
 
         return clientData;
     }
+
 
     /**
      * Get pending requests in a fair way (one request from each client
