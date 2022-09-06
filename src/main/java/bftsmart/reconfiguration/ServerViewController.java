@@ -45,6 +45,8 @@ public class ServerViewController extends ViewController {
     
     private int quorumBFT; // ((n + f) / 2) replicas
     private int quorumCFT; // (n / 2) replicas
+
+    public int PAPnumber = 5;
     private int[] otherProcesses;
     private int[] lastJoinStet;
     private List<TOMMessage> updates = new LinkedList<TOMMessage>();

@@ -47,7 +47,7 @@ public final class BatchBuilder {
 
         /** build buffer */
 	private byte[] createBatch(long timestamp, int numberOfNonces, long seed, int numberOfMessages, int totalMessagesSize,
-			boolean useSignatures, byte[][] messages, byte[][] signatures) {
+			boolean useSignatures, byte[][] messages, byte[][] signatures, int q) {
             
                 int sigsSize = 0;
                 
@@ -100,7 +100,7 @@ public final class BatchBuilder {
                 }
 	}
 
-	public byte[] makeBatch(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures) {
+	public byte[] makeBatch(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures, int q) {
 
 		int numMsgs = msgs.size();
 		int totalMessageSize = 0; //total size of the messages being batched
@@ -123,10 +123,10 @@ public final class BatchBuilder {
 
 		// return the batch
 		return createBatch(timestamp, numNounces,rnd.nextLong(), numMsgs, totalMessageSize,
-				useSignatures, messages, signatures);
+				useSignatures, messages, signatures, q);
 
 	}
-	public byte[] makeBatch(List<TOMMessage> msgs, int numNounces, long seed, long timestamp, boolean useSignatures) {
+	public byte[] makeBatch(List<TOMMessage> msgs, int numNounces, long seed, long timestamp, boolean useSignatures, int q) {
 
 		int numMsgs = msgs.size();
 		int totalMessageSize = 0; //total size of the messages being batched
@@ -149,7 +149,7 @@ public final class BatchBuilder {
 
 		// return the batch
 		return createBatch(timestamp, numNounces,seed, numMsgs, totalMessageSize,
-				useSignatures, messages, signatures);
+				useSignatures, messages, signatures, q);
 
 	}
 
