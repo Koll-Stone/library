@@ -22,7 +22,7 @@ import java.io.Serializable;
 
 /**
  * This interface represents a state transfered from a replica to another. The state associated with the last
- * checkpoint together with all the batches of messages received do far, comprises the sender's
+ * checkpoint together with all the batches of messages received so far, comprises the sender's
  * current state
  * 
  * IMPORTANT: The hash state MUST ALWAYS be present, regardless if the replica is supposed to

@@ -52,7 +52,8 @@ public class DefaultReplier implements Replier{
                 LoggerFactory.getLogger(this.getClass()).error("Interruption while waiting/aquiring condition", ex);
             }
         }
-        
+
+        request.reply.setToORDERED();
         rc.getServerCommunicationSystem().send(new int[]{request.getSender()}, request.reply);
         
     }

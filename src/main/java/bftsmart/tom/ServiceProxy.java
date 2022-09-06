@@ -386,6 +386,7 @@ public class ServiceProxy extends TOMSender {
 			}
 
 			int sameContent = 1;
+			System.out.println("reply request type is" + reply.getReqType());
 			if (reply.getSequence() == reqId && reply.getReqType() == requestType) {
 
 				logger.debug("Receiving reply from " + reply.getSender()

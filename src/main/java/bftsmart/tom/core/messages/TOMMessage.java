@@ -390,4 +390,16 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	public void setReplyServer(int replyServer) {
 		this.replyServer = replyServer;
 	}
+
+	public void setToUpdate() {
+		 this.type = TOMMessageType.XACML_UPDATE;
+	}
+
+	public void setToQuery() {
+		 this.type = TOMMessageType.XACML_QUERY;
+	}
+
+	public void setToORDERED() {
+		 this.type = TOMMessageType.ORDERED_REQUEST;
+	}
 }

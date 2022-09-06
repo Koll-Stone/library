@@ -332,6 +332,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 		case ORDERED_REQUEST:
 		case UNORDERED_HASHED_REQUEST:
 		case UNORDERED_REQUEST:
+
 			// These messages should be processed
 			break;
         }
@@ -394,7 +395,10 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
         logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs");
 
-        return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1);
+//        return bb.makeBatchForPropose(pendingRequests, numberOfNonces, System.currentTimeMillis(),
+//                controller.getStaticConf().getUseSignatures() == 1, controller.getCurrentViewF()+1);
+        return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(),
+                controller.getStaticConf().getUseSignatures() == 1);
     }
 
     /**
@@ -526,6 +530,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             //deserialize the message
             //TODO: verify Timestamps and Nonces
             requests = batchReader.deserialiseRequests(this.controller);
+
 
             if (addToClientManager) {
 

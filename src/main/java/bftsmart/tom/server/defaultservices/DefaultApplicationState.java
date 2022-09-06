@@ -129,9 +129,7 @@ public class DefaultApplicationState implements ApplicationState {
             
             //Recreate all TOMMessages ordered in the consensus
             for (int i = 0; i < ci.commands.length; i++) {
-                
                 requests.add(ci.msgCtx[i].recreateTOMMessage(ci.commands[i]));
-                
             }
             
             //Serialize the TOMMessages to re-create the proposed value

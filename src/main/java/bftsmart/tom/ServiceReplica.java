@@ -87,6 +87,7 @@ public class ServiceReplica {
      * @param recoverer Recoverer
      */
     public ServiceReplica(int id, Executable executor, Recoverable recoverer) {
+
         this(id, "", executor, recoverer, null, new DefaultReplier(), null);
     }
 
@@ -140,6 +141,9 @@ public class ServiceReplica {
         this.init();
         this.recoverer.setReplicaContext(replicaCtx);
         this.replier.setReplicaContext(replicaCtx);
+        System.out.println("################################");
+        System.out.println("service replcia initalized");
+        System.out.println("################################");
     }
 
     // this method initializes the object
@@ -231,7 +235,7 @@ public class ServiceReplica {
         
     /**
      * Cleans the object state and reboots execution. From the perspective of the rest of the system,
-     * this is equivalent to a rash followed by a recovery.
+     * this is equivalent to a crash followed by a recovery.
      */
     public void restart() {        
         Thread t = new Thread() {
@@ -286,7 +290,8 @@ public class ServiceReplica {
                     if (null == request.getReqType()) {
                         throw new RuntimeException("Should never reach here!");
                     } else switch (request.getReqType()) {
-                        case ORDERED_REQUEST:
+                        case XACML_QUERY:
+                        case XACML_UPDATE:
                             noop = false;
                             numRequests++;
                             MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(),
@@ -333,6 +338,7 @@ public class ServiceReplica {
                             } else { //this code should never be executed
                                 throw new UnsupportedOperationException("Non-existent interface");
                             }   break;
+
                         case RECONFIG:
                             SVController.enqueueUpdate(request);
                             break;

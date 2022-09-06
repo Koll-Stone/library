@@ -48,6 +48,7 @@ public class ClientsManager {
     private ServerViewController controller;
     private RequestsTimer timer;
     private HashMap<Integer, ClientData> clientsData = new HashMap<Integer, ClientData>();
+    public int PAPNumber = 5;
     private RequestVerifier verifier;
     
     //Used when the intention is to perform benchmarking with signature verification, but
@@ -302,7 +303,13 @@ public class ClientsManager {
         long receptionTimestamp = System.currentTimeMillis();
         
         int clientId = request.getSender();
+        if (clientId<PAPNumber) {
+            request.setToUpdate();
+        } else {
+            request.setToQuery();
+        }
         boolean accounted = false;
+
 
         ClientData clientData = getClientData(clientId);
         

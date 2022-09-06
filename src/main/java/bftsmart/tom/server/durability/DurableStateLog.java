@@ -88,7 +88,7 @@ public class DurableStateLog extends StateLog {
          * @param msgCtx
          * @param consensusId the consensus id added to the batch
 	 */
-        @Override
+	@Override
 	public void addMessageBatch(byte[][] commands, MessageContext[] msgCtx, int consensusId) {
 //		System.out.println("DurableStateLog#addMessageBatch. consensusId: " + consensusId);
 		CommandsInfo command = new CommandsInfo(commands, msgCtx);
@@ -124,7 +124,7 @@ public class DurableStateLog extends StateLog {
 	    }
 	}
 	
-        @Override
+	@Override
 	public void newCheckpoint(byte[] state, byte[] stateHash, int consensusId) {
 		String ckpPath = DEFAULT_DIR + String.valueOf(id) + "."
 				+ System.currentTimeMillis() + ".tmp";

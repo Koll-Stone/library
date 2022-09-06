@@ -102,4 +102,139 @@ public final class BatchReader {
         }
         return requests;
     }
+
+    public TOMMessage[] deserialisePropose(ServerViewController controller) {
+
+        //obtain the timestamps to be delivered to the application
+        long timestamp = proposalBuffer.getLong();
+
+        int numberOfNonces = proposalBuffer.getInt();
+
+        long seed = 0;
+
+        Random rnd = null;
+        if(numberOfNonces > 0){
+            seed = proposalBuffer.getLong();
+            rnd = new Random(seed);
+        }
+        else numberOfNonces = 0; // make sure the value is correct
+
+        // read first part XACML_UPDATE msgs
+        int numberOfUpdateMsg = proposalBuffer.getInt();
+        TOMMessage[] updateRequests = new TOMMessage[numberOfUpdateMsg];
+
+        for (int i = 0; i < numberOfUpdateMsg; i++) {
+            //read the message and its signature from the batch
+            int messageSize = proposalBuffer.getInt();
+
+            byte[] message = new byte[messageSize];
+            proposalBuffer.get(message);
+
+            byte[] signature = null;
+
+            if (useSignatures) {
+
+                int sigSize = proposalBuffer.getInt();
+
+                if (sigSize > 0) {
+                    signature = new byte[sigSize];
+                    proposalBuffer.get(signature);
+                }
+            }
+
+            //obtain the nonces to be delivered to the application
+            byte[] nonces = new byte[numberOfNonces];
+            if (nonces.length > 0) {
+                rnd.nextBytes(nonces);
+            }
+            try {
+                DataInputStream ois = new DataInputStream(new ByteArrayInputStream(message));
+                TOMMessage tm = new TOMMessage();
+                tm.rExternal(ois);
+
+                tm.serializedMessage = message;
+                tm.serializedMessageSignature = signature;
+                tm.numOfNonces = numberOfNonces;
+                tm.seed = seed;
+                tm.timestamp = timestamp;
+                updateRequests[i] = tm;
+
+            } catch (Exception e) {
+                LoggerFactory.getLogger(this.getClass()).error("Failed to deserialize batch",e);
+            }
+        }
+
+
+
+        // read second part XACML_QUERY msgs
+        int numberOfQueryMsg = proposalBuffer.getInt();
+        TOMMessage[] queryRequests = new TOMMessage[numberOfQueryMsg];
+
+        for (int i = 0; i < numberOfUpdateMsg; i++) {
+            //read the message and its signature from the batch
+            int messageSize = proposalBuffer.getInt();
+
+            byte[] message = new byte[messageSize];
+            proposalBuffer.get(message);
+
+            byte[] signature = null;
+
+            if (useSignatures) {
+
+                int sigSize = proposalBuffer.getInt();
+
+                if (sigSize > 0) {
+                    signature = new byte[sigSize];
+                    proposalBuffer.get(signature);
+                }
+            }
+
+            // skip indicators
+            int ths = proposalBuffer.getInt();
+            for (int j=0; j<ths; j++) {
+                proposalBuffer.getInt();
+            }
+
+            //obtain the nonces to be delivered to the application
+            byte[] nonces = new byte[numberOfNonces];
+            if (nonces.length > 0) {
+                rnd.nextBytes(nonces);
+            }
+            try {
+                DataInputStream ois = new DataInputStream(new ByteArrayInputStream(message));
+                TOMMessage tm = new TOMMessage();
+                tm.rExternal(ois);
+
+                tm.serializedMessage = message;
+                tm.serializedMessageSignature = signature;
+                tm.numOfNonces = numberOfNonces;
+                tm.seed = seed;
+                tm.timestamp = timestamp;
+                updateRequests[i] = tm;
+
+            } catch (Exception e) {
+                LoggerFactory.getLogger(this.getClass()).error("Failed to deserialize batch",e);
+            }
+        }
+
+        TOMMessage[] requests = new TOMMessage[updateRequests.length+queryRequests.length];
+        int i = 0;
+        for (TOMMessage msg: updateRequests) {
+            requests[i] = msg;
+            i += 1;
+        }
+        for (TOMMessage msg: queryRequests) {
+            requests[i] = msg;
+            i += 1;
+        }
+
+        System.out.println("requests length is " + requests.length);
+        for (TOMMessage req: requests) {
+            if (req==null) {
+                System.out.println("this request is a null");
+            }
+        }
+
+        return requests;
+    }
 }
