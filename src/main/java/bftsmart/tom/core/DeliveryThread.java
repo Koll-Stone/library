@@ -274,6 +274,7 @@ public final class DeliveryThread extends Thread {
 					int count = 0;
 					for (Decision d : decisions) {
 						requests[count] = extractMessagesFromDecision(d);
+						logger.debug("this request extracted from decision has type "+requests[count][0].getReqType());
 						consensusIds[count] = d.getConsensusId();
 						leadersIds[count] = d.getLeader();
 						regenciesIds[count] = d.getRegency();

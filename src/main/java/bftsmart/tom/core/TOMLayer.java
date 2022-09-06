@@ -347,6 +347,15 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         } else {
             logger.debug("Received TOMMessage from client " + msg.getSender() + " with sequence number " + msg.getSequence() + " for session " + msg.getSession());
 
+            if(msg.getReqType()==TOMMessageType.ORDERED_REQUEST) {
+                if (msg.getSender()<clientsManager.PAPNum) {
+                    msg.setToUpdate();
+                } else {
+                    msg.setToQuery();
+                }
+                logger.debug("set request type to " + msg.getReqType());
+            }
+
             if (clientsManager.requestReceived(msg, fromClient, communication)) {
 
                 if(controller.getStaticConf().getBatchTimeout() == -1) {
@@ -392,7 +401,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         }
         dec.batchSize = numberOfMessages;
 
-        logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs");
+        logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs, its type is "+pendingRequests.get(0).getReqType());
+
 
         return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1);
     }
@@ -526,6 +536,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             //deserialize the message
             //TODO: verify Timestamps and Nonces
             requests = batchReader.deserialiseRequests(this.controller);
+            logger.debug("reqeusts from batchreader has type "+requests[0].getReqType());
 
             if (addToClientManager) {
 

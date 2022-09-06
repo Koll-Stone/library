@@ -16,6 +16,7 @@ limitations under the License.
 package bftsmart.consensus;
 
 import bftsmart.tom.core.messages.TOMMessage;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Decision {
 
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final int cid; // Consensus ID in which the value was decided
     private Epoch decisionEpoch = null; // Epoch in which the value was decided
     private int regency; // Regency in which the value was decided
@@ -113,6 +115,7 @@ public class Decision {
         while (deserializedValue == null) {
             waitForPropose();
             deserializedValue = decisionEpoch.deserializedPropValue;
+            logger.debug("reqeust extracted from decisionEpoch has tye "+deserializedValue[0].getReqType());
         }
         return deserializedValue;
     }

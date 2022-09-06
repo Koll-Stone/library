@@ -8,7 +8,6 @@ BFT-SMaRt requires the Java Runtime Environment version 1.8 or later.
 ## Quick start
 
 To run any demonstration you first need to configure BFT-SMaRt to define the protocol behavior and the location of each replica.
-To run any demonstration you first need to configure BFT-SMaRt to define the protocol behavior and the location of each replica.
 
 The servers must be specified in the configuration file (see `config/hosts.config`):
 

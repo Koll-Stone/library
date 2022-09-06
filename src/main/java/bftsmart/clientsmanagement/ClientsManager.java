@@ -48,6 +48,7 @@ public class ClientsManager {
     private ServerViewController controller;
     private RequestsTimer timer;
     private HashMap<Integer, ClientData> clientsData = new HashMap<Integer, ClientData>();
+    public int PAPNum = 5;
     private RequestVerifier verifier;
     
     //Used when the intention is to perform benchmarking with signature verification, but
@@ -392,6 +393,7 @@ public class ClientsManager {
                 //insert it in the pending requests of this client
 
                 request.recvFromClient = fromClient;
+                logger.debug("add a request of type "+ request.getReqType() + " to clientsManager pendingrequests");
                 clientData.getPendingRequests().add(request); 
                 clientData.setLastMessageReceived(request.getSequence());
                 clientData.setLastMessageReceivedTime(request.receptionTime);

@@ -286,7 +286,8 @@ public class ServiceReplica {
                     if (null == request.getReqType()) {
                         throw new RuntimeException("Should never reach here!");
                     } else switch (request.getReqType()) {
-                        case ORDERED_REQUEST:
+                        case XACML_UPDATE:
+                        case XACML_QUERY:
                             noop = false;
                             numRequests++;
                             MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(),
@@ -324,7 +325,8 @@ public class ServiceReplica {
                                 // This is used to deliver the requests to the application and obtain a reply to deliver
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
-                                
+                                response.setToORDERED();
+                                logger.debug("set response type to"+response.getReqType());
                                 if (response != null) {
                                     
                                     logger.debug("sending reply to " + response.getSender());
@@ -337,6 +339,7 @@ public class ServiceReplica {
                             SVController.enqueueUpdate(request);
                             break;
                         default: //this code should never be executed
+                            logger.debug("the type is "+request.getReqType());
                             throw new RuntimeException("Should never reach here!");
                     }
                 } else if (request.getViewID() < SVController.getCurrentViewId()) { 
