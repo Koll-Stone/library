@@ -29,8 +29,8 @@ public enum TOMMessageType {
     STATUS_REPLY,// 5
     UNORDERED_HASHED_REQUEST, //6
 
-    XACML_UPDATE, // 7
-    XACML_QUERY; //8;
+    XACML_UPDATE, //7
+    XACML_QUERY; //8
     
     public int toInt() {
         switch(this) {
