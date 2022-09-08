@@ -286,8 +286,7 @@ public class ServiceReplica {
                     if (null == request.getReqType()) {
                         throw new RuntimeException("Should never reach here!");
                     } else switch (request.getReqType()) {
-                        case XACML_UPDATE:
-                        case XACML_QUERY:
+                        case ORDERED_REQUEST:
                             noop = false;
                             numRequests++;
                             MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(),
@@ -325,10 +324,10 @@ public class ServiceReplica {
                                 // This is used to deliver the requests to the application and obtain a reply to deliver
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
-                                response.setToORDERED();
+
                                 logger.debug("set response type to"+response.getReqType());
                                 if (response != null) {
-                                    
+                                    response.setToXACMLNop(); // qiwie, add xtype
                                     logger.debug("sending reply to " + response.getSender());
                                     replier.manageReply(response, msgCtx);
                                 }
@@ -426,6 +425,7 @@ public class ServiceReplica {
                         repMan.send(reply);
                     } else {
                         logger.debug("Sending reply to " + reply.getSender() + " with sequence number " + reply.getSequence() + " and operation ID " + reply.getOperationId());
+//                        reply.setToXACMLNop(); // qiwei, add xtype
                         replier.manageReply(reply, null);
                         //cs.send(new int[]{request.getSender()}, request.reply);
                     }

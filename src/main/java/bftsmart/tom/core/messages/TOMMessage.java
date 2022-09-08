@@ -37,6 +37,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	private int viewID; //current sender view
 	private TOMMessageType type; // request type: application or reconfiguration request
 	//******* EDUARDO END **************//
+	private XACMLType xtype;
 
 	private int session; // Sequence number defined by the client
 	// Sequence number defined by the client.
@@ -123,6 +124,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		buildId();
 		this.content = content;
 		this.type = type;
+		this.xtype = XACMLType.XACML_nop;
 	}
 
 
@@ -172,6 +174,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 
 	public TOMMessageType getReqType() {
 		return type;
+	}
+
+	public XACMLType getXType() {
+		return xtype;
 	}
 
 	/**
@@ -230,6 +236,8 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		out.writeInt(sender);
 		out.writeInt(viewID);
 		out.writeInt(type.toInt());
+		out.writeInt(xtype.toInt());// qiwei, add xtype
+//		System.out.println("look the type, i wrote " + type);
 		out.writeInt(session);
 		out.writeInt(sequence);
 		out.writeInt(operationId);
@@ -247,6 +255,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		sender = in.readInt();
 		viewID = in.readInt();
 		type = TOMMessageType.fromInt(in.readInt());
+		xtype = XACMLType.fromInt(in.readInt());
 		session = in.readInt();
 		sequence = in.readInt();
 		operationId = in.readInt();
@@ -257,6 +266,8 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 			content = new byte[toRead];
 			in.readFully(content);
 		}
+
+
 
 		buildId();
 	}
@@ -376,6 +387,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
                     clone.timestamp = this.timestamp;
                     clone.writeSentTime = this.writeSentTime;
                     clone.retry = this.retry;
+					clone.xtype = this.xtype; // qiwei, add xtype
 
                     return clone;
                         
@@ -391,15 +403,20 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		this.replyServer = replyServer;
 	}
 
-	public void setToUpdate() {
-		this.type = TOMMessageType.XACML_UPDATE;
+	public void setToXACMLNop() {
+		 this.xtype = XACMLType.XACML_nop;
+	}
+	public void setToXACMLUpdate() {
+		 this.xtype = XACMLType.XACML_UPDATE;
 	}
 
-	public void setToQuery() {
-		this.type = TOMMessageType.XACML_QUERY;
+	public void setToXACMLQuery() {
+		 this.xtype = XACMLType.XACML_QUERY;
 	}
 
-	public void setToORDERED() {
-		this.type = TOMMessageType.ORDERED_REQUEST;
-	}
+
+
+//	public void setToORDERED() {
+//		this.type = TOMMessageType.ORDERED_REQUEST;
+//	}
 }

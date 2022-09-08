@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ServiceProxy extends TOMSender {
     
-        private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	// Locks for send requests and receive replies
 	protected ReentrantLock canReceiveLock = new ReentrantLock();
