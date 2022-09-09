@@ -325,7 +325,7 @@ public class ServiceReplica {
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
 
-                                logger.debug("set response type to"+response.getReqType());
+                                logger.debug("set response type to "+response.getReqType());
                                 if (response != null) {
                                     response.setToXACMLNop(); // qiwie, add xtype
                                     logger.debug("sending reply to " + response.getSender());

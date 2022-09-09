@@ -347,14 +347,14 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         } else {
             logger.debug("Received TOMMessage from client " + msg.getSender() + " with sequence number " + msg.getSequence() + " for session " + msg.getSession());
 
-//            if(msg.getReqType()==TOMMessageType.ORDERED_REQUEST) {
-//                if (msg.getSender()<clientsManager.PAPNum) {
-//                    msg.setToUpdate();
-//                } else {
-//                    msg.setToQuery();
-//                }
-//                logger.debug("set request type to " + msg.getReqType());
-//            }
+            if(msg.getReqType()==TOMMessageType.ORDERED_REQUEST) {
+                if (msg.getSender()<clientsManager.PAPNum) {
+                    msg.setToXACMLUpdate();
+                } else {
+                    msg.setToXACMLQuery();
+                }
+                logger.debug("set request type to " + msg.getXType());
+            }
 
             if (clientsManager.requestReceived(msg, fromClient, communication)) {
 
@@ -401,10 +401,10 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         }
         dec.batchSize = numberOfMessages;
 
-        logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs, its type is "+pendingRequests.get(0).getReqType());
+        logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs, its type is "+pendingRequests.get(0).getXType());
 
 
-        return bb.makeBatch(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1);
+        return bb.makeBatchForPropose(pendingRequests, numberOfNonces, System.currentTimeMillis(), controller.getStaticConf().getUseSignatures() == 1);
     }
 
     /**
@@ -535,7 +535,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
             //deserialize the message
             //TODO: verify Timestamps and Nonces
-            requests = batchReader.deserialiseRequests(this.controller);
+            logger.debug("try to deserizlize requests from the propose msg");
+            requests = batchReader.deserialiseRequestsInPropose(this.controller);
             logger.debug("reqeusts from batchreader has type "+requests[0].getReqType());
 
             if (addToClientManager) {

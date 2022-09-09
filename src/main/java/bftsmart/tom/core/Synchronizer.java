@@ -362,7 +362,7 @@ public class Synchronizer {
                 byte[] temp = (byte[]) ois.readObject();
                 BatchReader batchReader = new BatchReader(temp,
                         controller.getStaticConf().getUseSignatures() == 1);
-                requests = batchReader.deserialiseRequests(controller);
+                requests = batchReader.deserialiseRequests(controller); // ?qiwei?, guess don't need to change this because it is receiving request batch
             } else {
                 
                 requests = new TOMMessage[0];
@@ -930,7 +930,7 @@ public class Synchronizer {
             Decision dec = new Decision(-1); // the only purpose of this object is to obtain the batchsize,
                                                 // using code inside of createPropose()
 
-            propose = tom.createPropose(dec);
+            propose = tom.createPropose(dec); // ?qiwei?, todo, called makebatchForPropose, may need change
             batchSize = dec.batchSize;
             
             try { // serialization of the CATCH-UP message
