@@ -199,6 +199,24 @@ public class ClientsManager {
             
             clientData.clientLock.lock();
             RequestList reqs = clientData.getPendingRequests();
+            int coun = 0;
+
+
+//            // qiwei, can propose only when there are more than 2 requests
+//            if (!reqs.isEmpty()) {
+//                for(TOMMessage msg:reqs) {
+//                    if(!msg.alreadyProposed) {
+//                        coun += 1;
+//                    }
+//                    if (coun>=2) {
+//                        havePending = true;
+//                        break;
+//                    }
+//                }
+//            }
+//            // qiwei, can propose only when there are more than 2 requests
+
+
             if (!reqs.isEmpty()) {
                 for(TOMMessage msg:reqs) {
                     if(!msg.alreadyProposed) {

@@ -361,13 +361,9 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                 if(controller.getStaticConf().getBatchTimeout() == -1) {
                     haveMessages();
                 } else {
-
                     if (!clientsManager.isNextBatchReady()) {
-
                         lastRequest = System.currentTimeMillis();
-
                     } else {
-
                         haveMessages();
                     }
 
@@ -389,8 +385,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         // Retrieve a set of pending requests from the clients manager
         RequestList pendingRequests = clientsManager.getPendingRequests();
 
-        logger.debug("Number of pending requets to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
-
+        logger.info("Number of pending requests to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
         int numberOfMessages = pendingRequests.size(); // number of messages retrieved
         int numberOfNonces = this.controller.getStaticConf().getNumberOfNonces(); // ammount of nonces to be generated
 
@@ -416,6 +411,16 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     public void run() {
         logger.debug("Running."); // TODO: can't this be outside of the loop?
         while (doWork) {
+
+            // qiwei, add delay to wait for more reqeusts in a batch.
+            // for testing with only 1 client
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            // qiwei, add delay to wait for more reqeusts in a batch.
+            // for testing with only 1 client, end
 
             // blocks until this replica learns to be the leader for the current epoch of the current consensus
             leaderLock.lock();
@@ -535,9 +540,9 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
             //deserialize the message
             //TODO: verify Timestamps and Nonces
-            logger.debug("try to deserizlize requests from the propose msg");
+//            logger.debug("try to deserizlize requests from the propose msg");
             requests = batchReader.deserialiseRequestsInPropose(this.controller);
-            logger.debug("reqeusts from batchreader has type "+requests[0].getReqType());
+            logger.debug("requests in propose msg are deserialised: there are "+requests.length+" requests");
 
             if (addToClientManager) {
 
