@@ -222,6 +222,17 @@ public final class BatchReader {
                 } catch (Exception e) {
                     LoggerFactory.getLogger(this.getClass()).error("Failed to deserialize batch",e);
                 }
+
+
+                // read executor index, although do nothing now
+                int executornum = proposalBuffer.getInt();
+                if (executornum>0) {
+                    for (int k=0; k<executornum; k++) {
+                        proposalBuffer.getInt();
+                    }
+                }
+                logger.info("skip executor index currently");
+                // read executor index, although do nothing now
             }
         }
 

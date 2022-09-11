@@ -158,7 +158,7 @@ public final class BatchBuilder {
 
 	}
 
-	public byte[] makeBatchForPropose(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures) {
+	public byte[] makeBatchForPropose(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures, int ths) {
 		// qiwei, seperate XACML_UPDATE and XACML_QUERU
 		RequestList updatemsgs = new RequestList();
 		RequestList querymsgs = new RequestList();
@@ -215,11 +215,11 @@ public final class BatchBuilder {
 
 		// return the batch
 		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, totalMessageSize,
-				useSignatures, messages, signatures);
+				useSignatures, messages, signatures, ths);
 	}
 
 	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys, int totalMessagesSize,
-							   boolean useSignatures, byte[][] messages, byte[][] signatures) {
+							   boolean useSignatures, byte[][] messages, byte[][] signatures, int ths) {
 		int sigsSize = 0;
 		int numberOfMessages = numberOfUpdates + numberofQuerys;
 
@@ -237,7 +237,8 @@ public final class BatchBuilder {
 				(numberOfNonces > 0 ? 8 : 0) + //seed if needed
 				(Integer.BYTES * numberOfMessages) + // messages length
 				sigsSize + // signatures size
-				totalMessagesSize; //size of all msges
+				totalMessagesSize+ //size of all msges
+				(Integer.BYTES * (1+ths) * numberofQuerys); // executor indexes
 
 		ByteBuffer  proposalBuffer = ByteBuffer.allocate(size);
 
@@ -259,6 +260,14 @@ public final class BatchBuilder {
 
 		for (int i = 0; i < numberofQuerys; i++) {
 			putMessage(proposalBuffer,messages[i+numberOfUpdates], useSignatures, signatures[i]);
+
+			// write executor indicator after each query request
+			proposalBuffer.putInt(ths);
+			for (int j=0; j<ths; j++) {
+				proposalBuffer.putInt(j);
+			}
+
+			// write executor indicator after each query request
 		}
 
 		return proposalBuffer.array();
