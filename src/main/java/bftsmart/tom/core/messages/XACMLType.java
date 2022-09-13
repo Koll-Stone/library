@@ -22,7 +22,7 @@ public enum XACMLType {
             case 1: return XACML_UPDATE;
             case 2: return XACML_QUERY;
             default:
-                throw new RuntimeException("Should never reach here!");
+                throw new RuntimeException("type value is "+i+ " Should never reach here!");
         }
     }
 }

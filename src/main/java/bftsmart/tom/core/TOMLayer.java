@@ -396,7 +396,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         }
         dec.batchSize = numberOfMessages;
 
-        logger.debug("Creating a PROPOSE with " + numberOfMessages + " msgs, its type is "+pendingRequests.get(0).getXType());
+        logger.info("Creating a PROPOSE with " + numberOfMessages + " msgs, its type is "+pendingRequests.get(0).getXType());
 
 
         return bb.makeBatchForPropose(pendingRequests, numberOfNonces, System.currentTimeMillis(),

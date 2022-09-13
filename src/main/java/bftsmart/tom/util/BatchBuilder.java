@@ -238,7 +238,7 @@ public final class BatchBuilder {
 				(Integer.BYTES * numberOfMessages) + // messages length
 				sigsSize + // signatures size
 				totalMessagesSize+ //size of all msges
-				(Integer.BYTES * (1+ths) * numberofQuerys); // executor indexes
+				(Integer.BYTES * (2+ths) * numberofQuerys); // executor indexes
 
 		ByteBuffer  proposalBuffer = ByteBuffer.allocate(size);
 
@@ -262,11 +262,17 @@ public final class BatchBuilder {
 			putMessage(proposalBuffer,messages[i+numberOfUpdates], useSignatures, signatures[i]);
 
 			// write executor indicator after each query request
-			proposalBuffer.putInt(ths);
-			for (int j=0; j<ths; j++) {
-				proposalBuffer.putInt(j);
+			if (i%2==0) {
+				proposalBuffer.putInt(ths);
+				for (int j=0; j<ths; j++) {
+					proposalBuffer.putInt(j);
+				}
+			} else {
+				proposalBuffer.putInt(ths+1);
+				for (int j=0; j<ths+1; j++) {
+					proposalBuffer.putInt(j);
+				}
 			}
-
 			// write executor indicator after each query request
 		}
 

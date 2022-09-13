@@ -231,7 +231,7 @@ public final class BatchReader {
                         proposalBuffer.getInt();
                     }
                 }
-                logger.info("skip executor index currently");
+                logger.debug("skip executor index currently");
                 // read executor index, although do nothing now
             }
         }
