@@ -36,6 +36,7 @@ import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.BatchExecutable;
 import bftsmart.tom.server.Executable;
+import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.Replier;
 import bftsmart.tom.server.RequestVerifier;
@@ -331,6 +332,10 @@ public class ServiceReplica {
                                     logger.debug("sending reply to " + response.getSender());
                                     replier.manageReply(response, msgCtx);
                                 }
+                            } else if (executor instanceof POrder) {
+                                logger.debug("run as Porder logic!");
+
+
                             } else { //this code should never be executed
                                 throw new UnsupportedOperationException("Non-existent interface");
                             }   break;

@@ -191,7 +191,7 @@ public final class BatchBuilder {
 		byte[][] messages = new byte[numMsgs][]; //bytes of the message (or its hash)
 		byte[][] signatures = new byte[numMsgs][]; //bytes of the message (or its hash)
 
-		// Fill the array of bytes for the messages/signatures being batched
+		// Fill with the array of bytes for the messages/signatures being batched
 		int i = 0;
 		for (TOMMessage msg : updatemsgs) {
 			//TOMMessage msg = msgs.next();
@@ -214,12 +214,15 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, totalMessageSize,
+		int k1 = 0;
+		int k2 = 0;
+		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
 
-	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys, int totalMessagesSize,
-							   boolean useSignatures, byte[][] messages, byte[][] signatures, int ths) {
+	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys, int numberOfReexecuted,
+										 int numberOfResponded, int totalMessagesSize, boolean useSignatures, byte[][] messages, byte[][] signatures,
+										 int ths) {
 		int sigsSize = 0;
 		int numberOfMessages = numberOfUpdates + numberofQuerys;
 
@@ -238,7 +241,12 @@ public final class BatchBuilder {
 				(Integer.BYTES * numberOfMessages) + // messages length
 				sigsSize + // signatures size
 				totalMessagesSize+ //size of all msges
-				(Integer.BYTES * (2+ths) * numberofQuerys); // executor indexes
+				(Integer.BYTES * (2+ths) * numberofQuerys)+ // executor indexes of querys
+				Integer.BYTES + // int: numberofreexecuted
+				(Integer.BYTES * 2 * numberOfReexecuted) + // indexes of re-executed txs
+				(Integer.BYTES * (2+ths) * numberOfReexecuted) + // executor indexes of re-executed txs
+				Integer.BYTES + // int: numberOfResponded
+				(Integer.BYTES * 2 * numberOfResponded); // indexes of responded txs
 
 		ByteBuffer  proposalBuffer = ByteBuffer.allocate(size);
 
@@ -250,14 +258,14 @@ public final class BatchBuilder {
 			proposalBuffer.putLong(seed);
 		}
 
+		// write XACML_update txs
 		proposalBuffer.putInt(numberOfUpdates);
-
 		for (int i = 0; i < numberOfUpdates; i++) {
 			putMessage(proposalBuffer,messages[i], useSignatures, signatures[i]);
 		}
 
+		// write XACML_query txs
 		proposalBuffer.putInt(numberofQuerys);
-
 		for (int i = 0; i < numberofQuerys; i++) {
 			putMessage(proposalBuffer,messages[i+numberOfUpdates], useSignatures, signatures[i]);
 
@@ -275,6 +283,42 @@ public final class BatchBuilder {
 			}
 			// write executor indicator after each query request
 		}
+
+		// write re-executed txs
+		logger.info("write re-executed txs");
+		proposalBuffer.putInt(numberOfReexecuted);
+		if (numberOfReexecuted>0) {
+			for (int i=0; i<numberOfReexecuted; i++) {
+				proposalBuffer.putInt(20075);
+				proposalBuffer.putInt(1);
+				// write indexes
+				if (i%2==0) {
+					proposalBuffer.putInt(ths);
+					for (int j=0; j<ths; j++) {
+						proposalBuffer.putInt(j);
+					}
+				} else {
+					proposalBuffer.putInt(ths+1);
+					for (int j=0; j<ths+1; j++) {
+						proposalBuffer.putInt(j);
+					}
+				}
+			}
+		}
+
+
+		// write responded txs
+		proposalBuffer.putInt(numberOfResponded);
+		logger.info("write responded txs");
+		if (numberOfResponded>0) {
+			for (int i=0; i<numberOfResponded; i++) {
+				proposalBuffer.putInt(1);
+				proposalBuffer.putInt(1);
+				logger.info("write responded tx index, do nothing...");
+			}
+		}
+
+
 
 		return proposalBuffer.array();
 	}

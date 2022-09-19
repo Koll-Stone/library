@@ -237,7 +237,7 @@ public final class BatchReader {
         }
 
 
-
+        // put all new txs toghther
         TOMMessage[] requests = new TOMMessage[numberOfUpdates+numberOfQuerys];
         for (int i=0; i<numberOfUpdates; i++) {
             requests[i] = updateRequests[i];
@@ -245,6 +245,36 @@ public final class BatchReader {
         for (int i=0; i<numberOfQuerys; i++) {
             requests[i+numberOfUpdates] = queryRequests[i];
         }
+
+        // read re-executed txs
+        int numberOfReexecuted = proposalBuffer.getInt();
+        if (numberOfReexecuted>0) {
+            for (int i=0; i<numberOfReexecuted; i++) {
+                int key1 = proposalBuffer.getInt();
+                int key2 = proposalBuffer.getInt();
+                // get executor index, although do nothing now
+                int executornum = proposalBuffer.getInt();
+                if (executornum>0) {
+                    for (int k=0; k<executornum; k++) {
+                        proposalBuffer.getInt();
+                    }
+                }
+//                logger.info("decode a re-executed tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+            }
+
+        }
+
+        // read responded txs
+        int numberOfResponded = proposalBuffer.getInt();
+        if (numberOfResponded>0) {
+            for (int i=0; i<numberOfResponded; i++) {
+                int key1 = proposalBuffer.getInt();
+                int key2 = proposalBuffer.getInt();
+//                logger.info("decode a responded tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+            }
+
+        }
+
 
         return requests;
     }
