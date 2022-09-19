@@ -214,8 +214,8 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int k1 = 0;
-		int k2 = 0;
+		int k1 = 10;
+		int k2 = 10;
 		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
@@ -290,7 +290,7 @@ public final class BatchBuilder {
 		if (numberOfReexecuted>0) {
 			for (int i=0; i<numberOfReexecuted; i++) {
 				proposalBuffer.putInt(20075);
-				proposalBuffer.putInt(1);
+				proposalBuffer.putInt(121);
 				// write indexes
 				if (i%2==0) {
 					proposalBuffer.putInt(ths);
@@ -312,8 +312,8 @@ public final class BatchBuilder {
 		logger.info("write responded txs");
 		if (numberOfResponded>0) {
 			for (int i=0; i<numberOfResponded; i++) {
-				proposalBuffer.putInt(1);
-				proposalBuffer.putInt(1);
+				proposalBuffer.putInt(10081);
+				proposalBuffer.putInt(452);
 				logger.info("write responded tx index, do nothing...");
 			}
 		}

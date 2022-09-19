@@ -259,7 +259,7 @@ public final class BatchReader {
                         proposalBuffer.getInt();
                     }
                 }
-//                logger.info("decode a re-executed tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+                logger.info("decode a re-executed tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
             }
 
         }
@@ -270,7 +270,7 @@ public final class BatchReader {
             for (int i=0; i<numberOfResponded; i++) {
                 int key1 = proposalBuffer.getInt();
                 int key2 = proposalBuffer.getInt();
-//                logger.info("decode a responded tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+                logger.info("decode a responded tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
             }
 
         }
