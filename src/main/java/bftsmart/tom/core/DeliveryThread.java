@@ -93,7 +93,9 @@ public final class DeliveryThread extends Thread {
 			decided.put(dec);
 
 			// clean the ordered messages from the pending buffer
-			TOMMessage[] requests = extractMessagesFromDecision(dec);
+			TOMMessage[] allrequests = extractMessagesFromDecision(dec);
+			BatchReader batchReader = new BatchReader(null, false);
+			TOMMessage[] requests = batchReader.extractClientRequests(allrequests);
 			tomLayer.clientsManager.requestsOrdered(requests);
 			logger.debug("Consensus " + dec.getConsensusId() + " finished. Decided size=" + decided.size());
 		} catch (Exception e) {
@@ -274,7 +276,7 @@ public final class DeliveryThread extends Thread {
 					int count = 0;
 					for (Decision d : decisions) {
 						requests[count] = extractMessagesFromDecision(d);
-						logger.debug("this request extracted from decision has type "+requests[count][0].getReqType());
+//						logger.debug("this request extracted from decision has type "+requests[count][0].getReqType());
 						consensusIds[count] = d.getConsensusId();
 						leadersIds[count] = d.getLeader();
 						regenciesIds[count] = d.getRegency();
@@ -365,7 +367,7 @@ public final class DeliveryThread extends Thread {
 		MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(), request.getReqType(),
 				request.getSession(), request.getSequence(), request.getOperationId(), request.getReplyServer(),
 				request.serializedMessageSignature, System.currentTimeMillis(), 0, 0, regency, -1, -1, null, null,
-				false); // Since the request is unordered,
+				false, null, null); // Since the request is unordered,
 		// there is no consensus info to pass
 
 		msgCtx.readOnly = true;

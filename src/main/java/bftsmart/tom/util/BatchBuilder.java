@@ -214,8 +214,8 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int k1 = 10;
-		int k2 = 10;
+		int k1 = 2;
+		int k2 = 2;
 		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
@@ -314,7 +314,7 @@ public final class BatchBuilder {
 			for (int i=0; i<numberOfResponded; i++) {
 				proposalBuffer.putInt(10081);
 				proposalBuffer.putInt(452);
-				logger.info("write responded tx index, do nothing...");
+//				logger.info("write responded tx index, do nothing...");
 			}
 		}
 

@@ -30,6 +30,7 @@ import bftsmart.tom.ServiceReplica;
 import bftsmart.tom.core.messages.ForwardedMessage;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
+import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.RequestsTimer;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.RequestVerifier;
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.security.*;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -537,12 +539,14 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             BatchReader batchReader = new BatchReader(proposedValue,
                     this.controller.getStaticConf().getUseSignatures() == 1);
 
-            TOMMessage[] requests;
+
 
             //deserialize the message
             //TODO: verify Timestamps and Nonces
 //            logger.debug("try to deserizlize requests from the propose msg");
-            requests = batchReader.deserialiseRequestsInPropose(this.controller);
+            TOMMessage[] allRequests = batchReader.deserialiseRequestsInPropose(this.controller);
+            TOMMessage[] requests = batchReader.extractClientRequests(allRequests);
+
             logger.debug("requests in propose msg are deserialised: there are "+requests.length+" requests");
 
             if (addToClientManager) {
@@ -554,12 +558,10 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
                     verifierExecutor.submit(() -> {
                         try {
-
                             //notifies the client manager that this request was received and get
                             //the result of its validation
                             request.isValid = clientsManager.requestReceived(request, false);
                             if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
-
                         }
                         catch (Exception e) {
 
@@ -584,7 +586,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
             logger.debug("Successfully deserialized batch");
 
-            return requests;
+            return allRequests;
 
         } catch (Exception e) {
             logger.error("Failed to check proposed value",e);
@@ -630,6 +632,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             execManager.processOutOfContextPropose(execManager.getConsensus(nextConsensus));
         }
     }
+
+
 
     public StateManager getStateManager() {
         return stateManager;

@@ -33,6 +33,7 @@ import bftsmart.tom.core.ReplyManager;
 import bftsmart.tom.core.TOMLayer;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
+import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.BatchExecutable;
 import bftsmart.tom.server.Executable;
@@ -294,7 +295,8 @@ public class ServiceReplica {
                                     request.getReqType(), request.getSession(), request.getSequence(), request.getOperationId(),
                                     request.getReplyServer(), request.serializedMessageSignature, firstRequest.timestamp,
                                     request.numOfNonces, request.seed, regencies[consensusCount], leaders[consensusCount],
-                                    consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false);
+                                    consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false,
+                                    request.getXType(), request.getExecutorIds());
                             if (requestCount + 1 == requestsFromConsensus.length) {
                                 
                                 msgCtx.setLastInBatch();
@@ -312,10 +314,30 @@ public class ServiceReplica {
                                 // deliver requests and contexts to the executor later
                                 msgCtxts.add(msgCtx);
                                 toBatch.add(request);
+                            } else if (executor instanceof POrder) {
+                                logger.debug("Delivering request from " + request.getSender() + " via POrder");
+
+                                if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
+                                TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
+
+                                if (msgCtx.getXtype()== XACMLType.XACML_UPDATE || msgCtx.getXtype()==XACMLType.XACML_QUERY) {
+                                    logger.info("sending reply to " + response.getSender());
+                                    if (response != null) {
+                                        response.setToXACMLNop(); // qiwie, add xtype
+                                        if (response.reply.getContent()==null) {
+                                            logger.info("but the reply is null");
+                                        } else {
+                                            replier.manageReply(response, msgCtx);
+                                        }
+                                    }
+                                } else {
+                                    logger.info("don't send reply for the other two types TOMMessages");
+                                }
+
                             } else if (executor instanceof SingleExecutable) {
                                 
                                 logger.debug("Delivering request from " + request.getSender() + " via SingleExecutable");
-                                
+
                                 // This is used to deliver the content decided by a consensus instance directly to
                                 // a Recoverable object. It is useful to allow the application to create a log and
                                 // store the proof associated with decisions (which are needed by replicas
@@ -325,17 +347,16 @@ public class ServiceReplica {
                                 // This is used to deliver the requests to the application and obtain a reply to deliver
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
+//                                TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
 
-                                logger.debug("set response type to "+response.getReqType());
                                 if (response != null) {
                                     response.setToXACMLNop(); // qiwie, add xtype
-                                    logger.debug("sending reply to " + response.getSender());
+                                    logger.info("sending reply to " + response.getSender());
+                                    if (response.reply.getContent()==null) {
+                                        logger.info("but the reply is null");
+                                    }
                                     replier.manageReply(response, msgCtx);
                                 }
-                            } else if (executor instanceof POrder) {
-                                logger.debug("run as Porder logic!");
-
-
                             } else { //this code should never be executed
                                 throw new UnsupportedOperationException("Non-existent interface");
                             }   break;
@@ -383,7 +404,8 @@ public class ServiceReplica {
                             m.getReqType(), m.getSession(), m.getSequence(), m.getOperationId(),
                             m.getReplyServer(), m.serializedMessageSignature, firstRequest.timestamp,
                             m.numOfNonces, m.seed, regencies[consensusCount], leaders[consensusCount],
-                            consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, true);
+                            consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest,
+                                true, m.getXType(), m.getExecutorIds());
                         msgCtx[line].setLastInBatch();
                         
                         line++;

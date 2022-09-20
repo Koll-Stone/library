@@ -23,6 +23,8 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 
 import bftsmart.communication.SystemMessage;
 import bftsmart.tom.util.DebugInfo;
@@ -47,13 +49,24 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 
 	private byte[] content = null; // Content of the message
 
+
+
+
 	//the fields bellow are not serialized!!!
+	// qiwei, new fields
+	private int blockH; // height of the block this TOMMesssage belongs to
+	private int txId; // tx id this TOMMessage is in the block
+	private int ths; // f or f+1;
+	private int[] executorIds;
+
+	// qiwei, new fields
+
 	private transient int id; // ID for this message. It should be unique
 
 	public transient long timestamp = 0; // timestamp to be used by the application
 
-        public transient long seed = 0; // seed for the nonces
-        public transient int numOfNonces = 0; // number of nonces
+	public transient long seed = 0; // seed for the nonces
+	public transient int numOfNonces = 0; // number of nonces
         
 	public transient int destination = -1; // message destination
 	public transient boolean signed = false; // is this message signed?
@@ -61,10 +74,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	public transient long receptionTime;//the reception time of this message (nanoseconds)
 	public transient long receptionTimestamp;//the reception timestamp of this message (miliseconds)
 
-        public transient boolean timeout = false;//this message was timed out?
-        
-        public transient boolean recvFromClient = false; // Did the client already sent this message to me, or did it arrived in the batch?
-        public transient boolean isValid = false; // Was this request already validated by the replica?
+	public transient boolean timeout = false;//this message was timed out?
+
+	public transient boolean recvFromClient = false; // Did the client already sent this message to me, or did it arrived in the batch?
+	public transient boolean isValid = false; // Was this request already validated by the replica?
         
 	//the bytes received from the client and its MAC and signature
 	public transient byte[] serializedMessage = null;
@@ -388,6 +401,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
                     clone.writeSentTime = this.writeSentTime;
                     clone.retry = this.retry;
 					clone.xtype = this.xtype; // qiwei, add xtype
+					clone.ths = this.ths; // qiwei, add executor Ids
+					clone.blockH = this.blockH; // qiwei, add block height;
+					clone.txId = this.txId; // qiwei, add tx id;
+					clone.executorIds = this.executorIds; // qiwei, add executor Ids
 
                     return clone;
                         
@@ -403,9 +420,34 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		this.replyServer = replyServer;
 	}
 
+	public void setBlockH(int h) {
+		 blockH = h;
+	}
+
+	public int getBlockH() {
+		 return blockH;
+	}
+
+	public void setTxId(int id) {
+		 txId = id;
+	}
+
+	public int getTxId() {
+		 return txId;
+	}
+
+	public void setExecutorIds(int[] eIds) {
+		 ths = eIds.length;
+		 executorIds = eIds;
+	}
+
+	public int[] getExecutorIds() {return executorIds;}
+
 	public void setToXACMLNop() {
 		 this.xtype = XACMLType.XACML_nop;
 	}
+
+	public void setToORDERED() {this.type = TOMMessageType.ORDERED_REQUEST;}
 	public void setToXACMLUpdate() {
 		 this.xtype = XACMLType.XACML_UPDATE;
 	}
@@ -413,6 +455,11 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	public void setToXACMLQuery() {
 		 this.xtype = XACMLType.XACML_QUERY;
 	}
+
+	public void setToXACMLREEXECUTE() { this.xtype = XACMLType.XACML_RE_EXECUTED;}
+
+	public void setToXACMLRESPONDED() {this.xtype = XACMLType.XACML_RESPONDED;}
+
 
 
 

@@ -18,6 +18,7 @@ package bftsmart.tom;
 import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
+import bftsmart.tom.core.messages.XACMLType;
 
 import java.io.Serializable;
 import java.util.Random;
@@ -59,6 +60,9 @@ public class MessageContext implements Serializable {
     public boolean readOnly = false;
     
     private byte[] nonces;
+
+    private XACMLType xtype;
+    private int[] executorIds;
     
     /**
      * Constructor 
@@ -84,7 +88,7 @@ public class MessageContext implements Serializable {
     public MessageContext(int sender, int viewID, TOMMessageType type,
             int session, int sequence, int operationId, int replyServer, byte[] signature,
             long timestamp, int numOfNonces, long seed, int regency, int leader, int consensusId,
-            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp) {
+            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp, XACMLType xtype, int[] execids) {
         
         this.nonces = null;
                
@@ -107,6 +111,9 @@ public class MessageContext implements Serializable {
         this.proof = proof;
         this.firstInBatch = firstInBatch;
         this.noOp = noOp;
+
+        this.xtype = xtype;
+        this.executorIds = execids;
     }
 
     /**
@@ -296,6 +303,12 @@ public class MessageContext implements Serializable {
         ret.serializedMessage = TOMMessage.messageToBytes(ret);
         
         return ret;
+    }
+
+    public XACMLType getXtype() {return xtype;}
+
+    public int[] getExecutorIds() {
+        return  executorIds;
     }
 
 }

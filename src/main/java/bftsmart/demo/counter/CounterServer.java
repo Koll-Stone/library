@@ -17,6 +17,7 @@ package bftsmart.demo.counter;
 
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.ServiceReplica;
+import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.defaultservices.DefaultSingleRecoverable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,7 +37,7 @@ import java.io.ObjectOutputStream;
  * @author alysson
  */
 
-public final class CounterServer extends DefaultSingleRecoverable  {
+public final class CounterServer extends POrder {
     
     private int counter = 0;
     private int iterations = 0;
