@@ -63,6 +63,7 @@ public class MessageContext implements Serializable {
 
     private XACMLType xtype;
     private int[] executorIds;
+    private int orderInBlock;
     
     /**
      * Constructor 
@@ -88,7 +89,8 @@ public class MessageContext implements Serializable {
     public MessageContext(int sender, int viewID, TOMMessageType type,
             int session, int sequence, int operationId, int replyServer, byte[] signature,
             long timestamp, int numOfNonces, long seed, int regency, int leader, int consensusId,
-            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp, XACMLType xtype, int[] execids) {
+            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp, XACMLType xtype,
+                          int[] execids, int orderinb) {
         
         this.nonces = null;
                
@@ -114,6 +116,7 @@ public class MessageContext implements Serializable {
 
         this.xtype = xtype;
         this.executorIds = execids;
+        this.orderInBlock = orderinb;
     }
 
     /**
@@ -306,6 +309,8 @@ public class MessageContext implements Serializable {
     }
 
     public XACMLType getXtype() {return xtype;}
+
+    public int getOrderInBlock() {return orderInBlock;}
 
     public int[] getExecutorIds() {
         return  executorIds;

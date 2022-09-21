@@ -87,36 +87,36 @@ public final class CounterServer extends POrder {
     }
 
     
-    @SuppressWarnings("unchecked")
-    @Override
-    public void installSnapshot(byte[] state) {
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(state);
-            ObjectInput in = new ObjectInputStream(bis);
-            counter = in.readInt();
-            in.close();
-            bis.close();
-        } catch (IOException e) {
-            System.err.println("[ERROR] Error deserializing state: "
-                    + e.getMessage());
-        }
-    }
+//    @SuppressWarnings("unchecked")
+//    @Override
+//    public void installSnapshot(byte[] state) {
+//        try {
+//            ByteArrayInputStream bis = new ByteArrayInputStream(state);
+//            ObjectInput in = new ObjectInputStream(bis);
+//            counter = in.readInt();
+//            in.close();
+//            bis.close();
+//        } catch (IOException e) {
+//            System.err.println("[ERROR] Error deserializing state: "
+//                    + e.getMessage());
+//        }
+//    }
 
-    @Override
-    public byte[] getSnapshot() {
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutput out = new ObjectOutputStream(bos);
-            out.writeInt(counter);
-            out.flush();
-            bos.flush();
-            out.close();
-            bos.close();
-            return bos.toByteArray();
-        } catch (IOException ioe) {
-            System.err.println("[ERROR] Error serializing state: "
-                    + ioe.getMessage());
-            return "ERROR".getBytes();
-        }
-    }
+//    @Override
+//    public byte[] getSnapshot() {
+//        try {
+//            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+//            ObjectOutput out = new ObjectOutputStream(bos);
+//            out.writeInt(counter);
+//            out.flush();
+//            bos.flush();
+//            out.close();
+//            bos.close();
+//            return bos.toByteArray();
+//        } catch (IOException ioe) {
+//            System.err.println("[ERROR] Error serializing state: "
+//                    + ioe.getMessage());
+//            return "ERROR".getBytes();
+//        }
+//    }
 }

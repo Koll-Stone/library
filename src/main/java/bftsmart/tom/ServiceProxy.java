@@ -464,7 +464,8 @@ public class ServiceProxy extends TOMSender {
          */
 	protected int getReplyQuorum() {
 		if (getViewManager().getStaticConf().isBFT()) {
-			return ((getViewManager().getCurrentViewN() + getViewManager().getCurrentViewF()) / 2) + 1;
+//			return ((getViewManager().getCurrentViewN() + getViewManager().getCurrentViewF()) / 2) + 1;
+			return getViewManager().getCurrentViewF()+1;
 		} else {
 			return ((getViewManager().getCurrentViewN()) / 2) + 1;
 		}

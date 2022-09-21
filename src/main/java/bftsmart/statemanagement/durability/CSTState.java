@@ -106,6 +106,7 @@ public class CSTState implements ApplicationState {
      */
     @Override
     public CertifiedDecision getCertifiedDecision(ServerViewController controller) {
+        System.out.println("cststate getcertifieddesicion being called!");
         CommandsInfo ci = getMessageBatch(getLastCID());
         if (ci != null && ci.msgCtx[0].getProof() != null) { // do I have a proof for the consensus?
             
