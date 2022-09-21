@@ -378,6 +378,7 @@ public abstract class DefaultRecoverable implements Recoverable, BatchExecutable
     private void initLog() {
         if (log == null) {
             checkpointPeriod = config.getCheckpointPeriod();
+            logger.info("checkpoint period is "+checkpointPeriod);
             byte[] state = getSnapshot();
             if (config.isToLog() && config.logToDisk()) {
                 int replicaId = config.getProcessId();

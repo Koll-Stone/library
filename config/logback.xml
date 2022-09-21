@@ -30,7 +30,7 @@
   </logger>
   
   
-  <logger name="bftsmart" level="info">
+  <logger name="bftsmart" level="debug">
   	<appender-ref ref="MIN-STDOUT" />
   	<!-- <appender-ref ref="STDOUT" /> -->
   </logger> 

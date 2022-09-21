@@ -212,13 +212,13 @@ public final class BatchReader {
                 if (nonces.length > 0) {
                     rnd.nextBytes(nonces);
                 }
-                logger.debug("try to decode the request");
+//                logger.debug("try to decode the request");
                 try {
                     DataInputStream ois = new DataInputStream(new ByteArrayInputStream(message));
                     TOMMessage tm = new TOMMessage();
                     tm.rExternal(ois);
 
-                    logger.debug("try to decode the rest");
+//                    logger.debug("try to decode the rest");
 
                     tm.serializedMessage = message;
                     tm.serializedMessageSignature = signature;
