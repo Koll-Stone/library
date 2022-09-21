@@ -22,6 +22,7 @@ import java.util.Random;
 
 import bftsmart.clientsmanagement.RequestList;
 import bftsmart.reconfiguration.ServerViewController;
+import bftsmart.tom.MessageContext;
 import bftsmart.tom.core.messages.TOMMessage;
 
 import bftsmart.tom.core.messages.XACMLType;
@@ -72,7 +73,7 @@ public final class BatchBuilder {
                                 sigsSize + // signatures size
 				totalMessagesSize; //size of all msges
 
-		ByteBuffer  proposalBuffer = ByteBuffer.allocate(size);
+		ByteBuffer proposalBuffer = ByteBuffer.allocate(size);
 
 		proposalBuffer.putLong(timestamp);
 
@@ -320,6 +321,14 @@ public final class BatchBuilder {
 
 
 
+		return proposalBuffer.array();
+	}
+
+
+	public byte[] reconstructPropose(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures,
+									  MessageContext[] msgCtx) {
+		ByteBuffer proposalBuffer = ByteBuffer.allocate(100);
+// todo, this does nothing!
 		return proposalBuffer.array();
 	}
 

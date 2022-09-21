@@ -772,13 +772,13 @@ public class LCManager {
 
         if (lasts == null) return null;
        
-        for (CertifiedDecision l : lasts) {
+        for (CertifiedDecision dec : lasts) {
 
             //TODO: CHECK OF THE PROOF IS MISSING!!!!
-            if (tomLayer.controller.getStaticConf().isBFT() && hasValidProof(l) && l.getCID() > highest.getCID()) 
-                    highest = l;
-            else if(l.getCID() > highest.getCID()){
-                    highest = l;
+            if (tomLayer.controller.getStaticConf().isBFT() && hasValidProof(dec) && dec.getCID() > highest.getCID())
+                    highest = dec;
+            else if(dec.getCID() > highest.getCID()){
+                    highest = dec;
              }
         }
 
@@ -822,14 +822,18 @@ public class LCManager {
                 pubKey = SVController.getStaticConf().getPublicKey(consMsg.getSender());
                    
                 byte[] signature = (byte[]) consMsg.getProof();
-                            
-                if (Arrays.equals(consMsg.getValue(), hashedValue) &&
-                        TOMUtil.verifySignature(pubKey, data, signature) && !alreadyCounted.contains(consMsg.getSender())) {
-                    
+                boolean r1 = Arrays.equals(consMsg.getValue(), hashedValue);
+                System.out.println("consMsg.getValue() is "+Arrays.toString(consMsg.getValue()));
+                System.out.println("hashedValue is "+Arrays.toString(hashedValue));
+                boolean r2 = TOMUtil.verifySignature(pubKey, data, signature);
+                boolean r3 = alreadyCounted.contains(consMsg.getSender());
+                logger.info("r1 = "+r1+", r2 = "+r2+" r3 = "+r3);
+                if ( r1 && r2 && !r3) {
                     alreadyCounted.add(consMsg.getSender());
                     countValid++;
                 } else {
                     logger.error("Invalid signature in message from " + consMsg.getSender());
+                    throw new RuntimeException("wrong again!");
                 }
    
             } else {

@@ -331,7 +331,7 @@ public class ServiceReplica {
                                         }
                                     }
                                 } else {
-                                    logger.info("don't send reply for the other two types TOMMessages");
+//                                    logger.debug("don't send reply for the other two types TOMMessages");
                                 }
 
                             } else if (executor instanceof SingleExecutable) {

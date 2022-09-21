@@ -16,6 +16,7 @@ limitations under the License.
 package bftsmart.tom.core;
 
 import bftsmart.consensus.Decision;
+import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.statemanagement.ApplicationState;
 import bftsmart.tom.MessageContext;
@@ -25,10 +26,13 @@ import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.util.BatchReader;
+import bftsmart.tom.util.TOMUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -284,6 +288,21 @@ public final class DeliveryThread extends Thread {
 						CertifiedDecision cDec = new CertifiedDecision(this.controller.getStaticConf().getProcessId(),
 								d.getConsensusId(), d.getValue(), d.getDecisionEpoch().proof);
 						cDecs[count] = cDec;
+
+//						MessageDigest md = TOMUtil.getHashEngine();
+//						byte[] hashedValue = md.digest(cDec.getDecision());
+//						logger.debug("hashedvalue is "+ Arrays.toString(hashedValue));
+//						for (ConsensusMessage cm: cDec.getConsMessages()) {
+//							byte[] r1 = cm.getValue();
+//							logger.info("consensus msg value is "+Arrays.toString(r1));
+//							if (!Arrays.equals(hashedValue, r1)) {
+//								logger.info("they are not the same");
+//							} else {
+//								logger.info("they are the same");
+//							}
+//						}
+
+
 
 						// cons.firstMessageProposed contains the performance counters
 						if (requests[count][0].equals(d.firstMessageProposed)) {

@@ -19,8 +19,11 @@ import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.statemanagement.ApplicationState;
 import bftsmart.tom.core.messages.TOMMessage;
+import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.util.BatchBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -33,6 +36,9 @@ import java.util.Set;
  * @author Joao Sousa
  */
 public class DefaultApplicationState implements ApplicationState {
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
 
     private static final long serialVersionUID = 6771081456095596363L;
 
@@ -122,6 +128,8 @@ public class DefaultApplicationState implements ApplicationState {
     @Override
     public CertifiedDecision getCertifiedDecision(ServerViewController controller) {
         CommandsInfo ci = getMessageBatch(getLastCID());
+
+
         if (ci != null && ci.msgCtx[0].getProof() != null) { // do I have a proof for the consensus?
             
             Set<ConsensusMessage> proof = ci.msgCtx[0].getProof();
@@ -129,15 +137,30 @@ public class DefaultApplicationState implements ApplicationState {
             
             //Recreate all TOMMessages ordered in the consensus
             for (int i = 0; i < ci.commands.length; i++) {
-                
-                requests.add(ci.msgCtx[i].recreateTOMMessage(ci.commands[i]));
+
+                TOMMessage tm = ci.msgCtx[i].recreateTOMMessage(ci.commands[i]);
+                if (ci.msgCtx[i].getXtype()== XACMLType.XACML_nop) {
+                    logger.info("its nop, impossible...");
+                }
+                switch (ci.msgCtx[i].getXtype()) {
+                    case XACML_UPDATE:
+                        tm.setToXACMLUpdate();
+                    case XACML_QUERY:
+                        tm.setToXACMLQuery();
+                    case XACML_RE_EXECUTED:
+                        tm.setToXACMLREEXECUTE();
+                    case XACML_RESPONDED:
+                        tm.setToXACMLRESPONDED();
+                }
+                requests.add(tm);
                 
             }
+            logger.info("the number of requests in reconstruction is "+requests.size());
             
             //Serialize the TOMMessages to re-create the proposed value
             BatchBuilder bb = new BatchBuilder(0);
-            byte[] value = bb.makeBatch(requests, ci.msgCtx[0].getNumOfNonces(),
-                    ci.msgCtx[0].getSeed(), ci.msgCtx[0].getTimestamp(), controller.getStaticConf().getUseSignatures() == 1);
+            byte[] value = bb.reconstructPropose(requests, ci.msgCtx[0].getNumOfNonces(), ci.msgCtx[0].getTimestamp(),
+                    controller.getStaticConf().getUseSignatures() == 1, ci.msgCtx);
             
             //Assemble and return the certified decision
             return new CertifiedDecision(pid, getLastCID(), value, proof);

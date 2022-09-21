@@ -335,6 +335,8 @@ public abstract class StateManager {
     }
     
     public void init(TOMLayer tomLayer, DeliveryThread dt) {
+
+        logger.info("statemanager is initialized");
     	SVController = tomLayer.controller;
     	
         this.tomLayer = tomLayer;

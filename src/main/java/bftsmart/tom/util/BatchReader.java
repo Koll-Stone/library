@@ -300,7 +300,7 @@ public final class BatchReader {
         // put all new txs toghther
         int ind = 0;
         TOMMessage[] requests = new TOMMessage[numberOfUpdates+numberOfQuerys+numberOfReexecuted+numberOfResponded];
-        logger.info("requests length is "+requests.length);
+//        logger.debug("requests length is "+requests.length);
         if (numberOfUpdates>0) {
             for (TOMMessage tm: updateRequests) {
                 requests[ind] = tm;
