@@ -17,6 +17,7 @@
 package bftsmart.tom;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -297,6 +298,8 @@ public class ServiceReplica {
                                     request.numOfNonces, request.seed, regencies[consensusCount], leaders[consensusCount],
                                     consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false,
                                     request.getXType(), request.getExecutorIds(), requestCount);
+                            msgCtx.setReferenceTXId(request.getReferenceTxId());
+                            logger.info("this request is " + request.getXType() + ", executors: "+ Arrays.toString(request.getExecutorIds()));
 
                             if (requestCount + 1 == requestsFromConsensus.length) {
                                 
@@ -321,18 +324,13 @@ public class ServiceReplica {
                                 if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
                                 TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
 
-                                if (msgCtx.getXtype()== XACMLType.XACML_UPDATE || msgCtx.getXtype()==XACMLType.XACML_QUERY) {
-                                    logger.info("sending reply to " + response.getSender());
-                                    if (response != null) {
-                                        response.setToXACMLNop(); // qiwie, add xtype
-                                        if (response.reply.getContent()==null) {
-                                            logger.info("but the reply is null");
-                                        } else {
-                                            replier.manageReply(response, msgCtx);
-                                        }
+                                if (response != null) {
+                                    response.setToXACMLNop(); // qiwei, add xtype
+                                    if (response.reply.getContent()==null) {
+                                        logger.info("but the reply is null");
+                                    } else {
+                                        replier.manageReply(response, msgCtx);
                                     }
-                                } else {
-//                                    logger.debug("don't send reply for the other two types TOMMessages");
                                 }
 
                             } else if (executor instanceof SingleExecutable) {
@@ -352,7 +350,7 @@ public class ServiceReplica {
 
                                 if (response != null) {
                                     response.setToXACMLNop(); // qiwie, add xtype
-                                    logger.info("sending reply to " + response.getSender());
+//                                    logger.info("sending reply to " + response.getSender());
                                     if (response.reply.getContent()==null) {
                                         logger.info("but the reply is null");
                                     }

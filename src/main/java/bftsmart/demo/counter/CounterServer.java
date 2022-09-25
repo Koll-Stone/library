@@ -17,6 +17,7 @@ package bftsmart.demo.counter;
 
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.ServiceReplica;
+import bftsmart.tom.server.PDPB.PExecutor;
 import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.defaultservices.DefaultSingleRecoverable;
 import java.io.ByteArrayInputStream;
@@ -43,6 +44,7 @@ public final class CounterServer extends POrder {
     private int iterations = 0;
     
     public CounterServer(int id) {
+        setReplicaId(id);
     	new ServiceReplica(id, this, this);
     }
             

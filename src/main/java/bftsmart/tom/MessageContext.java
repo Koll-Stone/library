@@ -19,6 +19,7 @@ import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.core.messages.XACMLType;
+import bftsmart.tom.util.TXid;
 
 import java.io.Serializable;
 import java.util.Random;
@@ -64,6 +65,8 @@ public class MessageContext implements Serializable {
     private XACMLType xtype;
     private int[] executorIds;
     private int orderInBlock;
+
+    private TXid referenceTxId; // tx it refers
     
     /**
      * Constructor 
@@ -316,4 +319,9 @@ public class MessageContext implements Serializable {
         return  executorIds;
     }
 
+    public TXid getReferenceTXId() {return referenceTxId;}
+
+    public void setReferenceTXId(TXid arg) {
+        referenceTxId = arg;
+    }
 }

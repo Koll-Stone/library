@@ -96,6 +96,7 @@ public final class DeliveryThread extends Thread {
 		try {
 			decided.put(dec);
 
+
 			// clean the ordered messages from the pending buffer
 			TOMMessage[] allrequests = extractMessagesFromDecision(dec);
 			BatchReader batchReader = new BatchReader(null, false);
@@ -272,6 +273,7 @@ public final class DeliveryThread extends Thread {
 
 				if (decisions.size() > 0) {
 					TOMMessage[][] requests = new TOMMessage[decisions.size()][];
+					logger.info("requests size is "+requests.length);
 					int[] consensusIds = new int[requests.length];
 					int[] leadersIds = new int[requests.length];
 					int[] regenciesIds = new int[requests.length];
@@ -280,7 +282,7 @@ public final class DeliveryThread extends Thread {
 					int count = 0;
 					for (Decision d : decisions) {
 						requests[count] = extractMessagesFromDecision(d);
-//						logger.debug("this request extracted from decision has type "+requests[count][0].getReqType());
+
 						consensusIds[count] = d.getConsensusId();
 						leadersIds[count] = d.getLeader();
 						regenciesIds[count] = d.getRegency();
@@ -289,36 +291,27 @@ public final class DeliveryThread extends Thread {
 								d.getConsensusId(), d.getValue(), d.getDecisionEpoch().proof);
 						cDecs[count] = cDec;
 
-//						MessageDigest md = TOMUtil.getHashEngine();
-//						byte[] hashedValue = md.digest(cDec.getDecision());
-//						logger.debug("hashedvalue is "+ Arrays.toString(hashedValue));
-//						for (ConsensusMessage cm: cDec.getConsMessages()) {
-//							byte[] r1 = cm.getValue();
-//							logger.info("consensus msg value is "+Arrays.toString(r1));
-//							if (!Arrays.equals(hashedValue, r1)) {
-//								logger.info("they are not the same");
-//							} else {
-//								logger.info("they are the same");
-//							}
-//						}
 
 
 
 						// cons.firstMessageProposed contains the performance counters
 						if (requests[count][0].equals(d.firstMessageProposed)) {
+							logger.info("enter if !!");
 							long time = requests[count][0].timestamp;
 							long seed = requests[count][0].seed;
 							int numOfNonces = requests[count][0].numOfNonces;
-							requests[count][0] = d.firstMessageProposed;
+//							requests[count][0] = d.firstMessageProposed;
 							requests[count][0].timestamp = time;
 							requests[count][0].seed = seed;
 							requests[count][0].numOfNonces = numOfNonces;
 						}
 
+
 						count++;
 					}
 
 					Decision lastDecision = decisions.get(decisions.size() - 1);
+
 
 					deliverMessages(consensusIds, regenciesIds, leadersIds, cDecs, requests);
 
@@ -364,6 +357,9 @@ public final class DeliveryThread extends Thread {
 
 	private TOMMessage[] extractMessagesFromDecision(Decision dec) {
 		TOMMessage[] requests = dec.getDeserializedValue();
+		TOMMessage tm = requests[0];
+		logger.info("******at this time, request type is "+tm.getXType()+
+				", executors are "+Arrays.toString(tm.getExecutorIds()));
 		if (requests == null) {
 			// there are no cached deserialized requests
 			// this may happen if this batch proposal was not verified

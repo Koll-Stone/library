@@ -215,8 +215,8 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int k1 = 2;
-		int k2 = 2;
+		int k1 = 1;
+		int k2 = 1;
 		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
@@ -271,38 +271,24 @@ public final class BatchBuilder {
 			putMessage(proposalBuffer,messages[i+numberOfUpdates], useSignatures, signatures[i]);
 
 			// write executor indicator after each query request
-			if (i%2==0) {
-				proposalBuffer.putInt(ths);
-				for (int j=0; j<ths; j++) {
-					proposalBuffer.putInt(j);
-				}
-			} else {
-				proposalBuffer.putInt(ths+1);
-				for (int j=0; j<ths+1; j++) {
-					proposalBuffer.putInt(j);
-				}
+			proposalBuffer.putInt(ths+1);
+			for (int j=0; j<ths+1; j++) {
+				proposalBuffer.putInt(j);
 			}
 			// write executor indicator after each query request
 		}
 
 		// write re-executed txs
-		logger.info("write re-executed txs");
+//		logger.info("write re-executed txs");
 		proposalBuffer.putInt(numberOfReexecuted);
 		if (numberOfReexecuted>0) {
 			for (int i=0; i<numberOfReexecuted; i++) {
 				proposalBuffer.putInt(20075);
 				proposalBuffer.putInt(121);
 				// write indexes
-				if (i%2==0) {
-					proposalBuffer.putInt(ths);
-					for (int j=0; j<ths; j++) {
-						proposalBuffer.putInt(j);
-					}
-				} else {
-					proposalBuffer.putInt(ths+1);
-					for (int j=0; j<ths+1; j++) {
-						proposalBuffer.putInt(j);
-					}
+				proposalBuffer.putInt(ths+1);
+				for (int j=0; j<ths+1; j++) {
+					proposalBuffer.putInt(j);
 				}
 			}
 		}
@@ -310,7 +296,7 @@ public final class BatchBuilder {
 
 		// write responded txs
 		proposalBuffer.putInt(numberOfResponded);
-		logger.info("write responded txs");
+//		logger.info("write responded txs");
 		if (numberOfResponded>0) {
 			for (int i=0; i<numberOfResponded; i++) {
 				proposalBuffer.putInt(10081);

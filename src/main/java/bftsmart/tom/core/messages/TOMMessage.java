@@ -23,11 +23,10 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 
 import bftsmart.communication.SystemMessage;
 import bftsmart.tom.util.DebugInfo;
+import bftsmart.tom.util.TXid;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -55,8 +54,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	//the fields bellow are not serialized!!!
 	// qiwei, new fields
 	private int blockH; // height of the block this TOMMesssage belongs to
-	private int txId; // tx id this TOMMessage is in the block
+	private int orderInBlock; // tx id this TOMMessage is in the block
 	private int ths; // f or f+1;
+
+	private TXid referenceTxId; // it refers a previous message;
 	private int[] executorIds;
 
 	// qiwei, new fields
@@ -403,7 +404,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 					clone.xtype = this.xtype; // qiwei, add xtype
 					clone.ths = this.ths; // qiwei, add executor Ids
 					clone.blockH = this.blockH; // qiwei, add block height;
-					clone.txId = this.txId; // qiwei, add tx id;
+					clone.orderInBlock = this.orderInBlock; // qiwei, add tx id;
 					clone.executorIds = this.executorIds; // qiwei, add executor Ids
 
                     return clone;
@@ -428,13 +429,19 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		 return blockH;
 	}
 
-	public void setTxId(int id) {
-		 txId = id;
+	public void setOrderInBlock(int id) {
+		 orderInBlock = id;
 	}
 
-	public int getTxId() {
-		 return txId;
+	public int getOrderInBlock() {
+		 return orderInBlock;
 	}
+
+	public void setReferenceTxId(TXid arg) {
+		 referenceTxId = arg;
+	}
+
+	public TXid getReferenceTxId() {return referenceTxId;}
 
 	public void setExecutorIds(int[] eIds) {
 		 ths = eIds.length;

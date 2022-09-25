@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Random;
 
 import bftsmart.reconfiguration.ServerViewController;
-import bftsmart.tom.core.TOMLayer;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.XACMLType;
 import org.slf4j.Logger;
@@ -229,19 +228,23 @@ public final class BatchReader {
                     queryRequests[i] = tm;
 
 
+                    int executornum = proposalBuffer.getInt();
+                    if (executornum>0) {
+                        int[] exegroup = new int[executornum];
+                        for (int k=0; k<executornum; k++) {
+                            exegroup[k] = proposalBuffer.getInt();
+                        }
+                        tm.setExecutorIds(exegroup);
+                        logger.info("batchReader: decoding request, executors: " + Arrays.toString(tm.getExecutorIds()));
+                    }
+                    logger.debug("read executor index currently");
                 } catch (Exception e) {
                     LoggerFactory.getLogger(this.getClass()).error("Failed to deserialize batch",e);
                 }
 
 
                 // read executor index, although do nothing now
-                int executornum = proposalBuffer.getInt();
-                if (executornum>0) {
-                    for (int k=0; k<executornum; k++) {
-                        proposalBuffer.getInt();
-                    }
-                }
-                logger.debug("skip executor index currently");
+
                 // read executor index, although do nothing now
             }
         }
@@ -259,8 +262,7 @@ public final class BatchReader {
                 tm.setToXACMLREEXECUTE();
                 int key1 = proposalBuffer.getInt();
                 int key2 = proposalBuffer.getInt();
-                tm.setBlockH(key1);
-                tm.setTxId(key2);
+                tm.setReferenceTxId(new TXid(key1, key2));
                 // get executor index, although do nothing now
                 int executornum = proposalBuffer.getInt();
                 if (executornum>0) {
@@ -288,8 +290,7 @@ public final class BatchReader {
                 tm.setToXACMLRESPONDED();
                 int key1 = proposalBuffer.getInt();
                 int key2 = proposalBuffer.getInt();
-                tm.setBlockH(key1);
-                tm.setTxId(key2);
+                tm.setReferenceTxId(new TXid(key1, key2));
                 respondedRequests[i] = tm;
 //                logger.info("decode a responded tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
             }

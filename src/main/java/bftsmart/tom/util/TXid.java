@@ -10,6 +10,13 @@ public class TXid {
         this.y = y;
     }
 
+    public int[] showTXid() {
+        int[] res = new int[2];
+        res[0] = x;
+        res[1] = y;
+        return res;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
