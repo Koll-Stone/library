@@ -36,8 +36,7 @@ public class DefaultReplier implements Replier{
     
     @Override
     public void manageReply(TOMMessage request, MessageContext msgCtx) {
-        
-        
+
         while (rc == null) {
             
             try {

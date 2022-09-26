@@ -32,6 +32,7 @@ import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.RequestsTimer;
+import bftsmart.tom.server.PDPB.EchoManager;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.RequestVerifier;
 import bftsmart.tom.util.BatchBuilder;
@@ -84,6 +85,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
      * Store requests received but still not ordered
      */
     public ClientsManager clientsManager;
+
+    public EchoManager echoManager;
     /**
      * The id of the consensus being executed (or -1 if there is none)
      */
@@ -180,6 +183,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
         // I have a verifier, now create clients manager
         this.clientsManager = new ClientsManager(this.controller, requestsTimer, verifier1);
+        this.echoManager = new EchoManager(this.controller.getCurrentViewF()+1);
+
 
         this.syncher = new Synchronizer(this); // create synchronizer
 
@@ -415,15 +420,15 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         logger.debug("Running."); // TODO: can't this be outside of the loop?
         while (doWork) {
 
-            // qiwei, add delay to wait for more reqeusts in a batch.
-            // for testing with only 1 client
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            // qiwei, add delay to wait for more reqeusts in a batch.
-            // for testing with only 1 client, end
+//            // qiwei, add delay to wait for more reqeusts in a batch.
+//            // for testing with only small number of clients
+//            try {
+//                Thread.sleep(500);
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//            }
+//            // qiwei, add delay to wait for more reqeusts in a batch.
+//            // for testing with only small number of clients, end
 
             // blocks until this replica learns to be the leader for the current epoch of the current consensus
             leaderLock.lock();

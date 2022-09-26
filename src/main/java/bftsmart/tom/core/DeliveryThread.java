@@ -296,7 +296,6 @@ public final class DeliveryThread extends Thread {
 
 						// cons.firstMessageProposed contains the performance counters
 						if (requests[count][0].equals(d.firstMessageProposed)) {
-							logger.info("enter if !!");
 							long time = requests[count][0].timestamp;
 							long seed = requests[count][0].seed;
 							int numOfNonces = requests[count][0].numOfNonces;
@@ -311,8 +310,7 @@ public final class DeliveryThread extends Thread {
 					}
 
 					Decision lastDecision = decisions.get(decisions.size() - 1);
-
-
+					
 					deliverMessages(consensusIds, regenciesIds, leadersIds, cDecs, requests);
 
 					// ******* EDUARDO BEGIN ***********//
@@ -358,8 +356,6 @@ public final class DeliveryThread extends Thread {
 	private TOMMessage[] extractMessagesFromDecision(Decision dec) {
 		TOMMessage[] requests = dec.getDeserializedValue();
 		TOMMessage tm = requests[0];
-		logger.info("******at this time, request type is "+tm.getXType()+
-				", executors are "+Arrays.toString(tm.getExecutorIds()));
 		if (requests == null) {
 			// there are no cached deserialized requests
 			// this may happen if this batch proposal was not verified

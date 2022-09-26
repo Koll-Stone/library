@@ -146,6 +146,11 @@ public class ServerCommunicationSystem extends Thread {
         }
     }
 
+    public void sendEcho(int[] targets, SystemMessage sm) {
+        logger.debug("--> sending echo message from: {} -> {}"+sm.getSender(), targets);
+        serversConn.send(targets, sm, true);
+    }
+
     public ServersCommunicationLayer getServersConn() {
         return serversConn;
     }

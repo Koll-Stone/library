@@ -169,13 +169,17 @@ public class RequestsTimer {
         
         if (!pendingRequests.isEmpty()) {
             
-            logger.info("The following requests timed out: " + pendingRequests);
+            logger.info("The following requests timed out: ");
+            for (TOMMessage tm: pendingRequests) {
+                logger.info("request of type "+tm.getXType());
+            }
             
             for (ListIterator<TOMMessage> li = pendingRequests.listIterator(); li.hasNext(); ) {
                 TOMMessage request = li.next();
                 if (!request.timeout) {
                     
-                    logger.info("Forwarding requests {} to leader", request);
+//                    logger.info("Forwarding requests {} to leader", request);
+                    logger.info("forwarding timeouted request to leader, its type is "+request.getXType());
 
                     request.signed = request.serializedMessageSignature != null;
                     tomLayer.forwardRequestToLeader(request);

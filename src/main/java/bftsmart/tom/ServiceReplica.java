@@ -38,6 +38,7 @@ import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.BatchExecutable;
 import bftsmart.tom.server.Executable;
+import bftsmart.tom.server.PDPB.EchoMessage;
 import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.Replier;
@@ -50,6 +51,7 @@ import bftsmart.tom.util.ShutdownHookThread;
 import bftsmart.tom.util.TOMUtil;
 import java.security.Provider;
 
+import bftsmart.tom.util.TXid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -274,6 +276,7 @@ public class ServiceReplica {
         List<TOMMessage> toBatch = new ArrayList<>();
         List<MessageContext> msgCtxts = new ArrayList<>();
         boolean noop = true;
+        int[] targets = this.tomLayer.controller.getCurrentViewAcceptors();
 
         for (TOMMessage[] requestsFromConsensus : requests) {
 
@@ -307,8 +310,8 @@ public class ServiceReplica {
                             }   request.deliveryTime = System.nanoTime();
                             if (executor instanceof BatchExecutable) {
                                 
-                               logger.debug("Batching request from " + request.getSender());
-                                
+                                logger.debug("Batching request from " + request.getSender());
+
                                 // This is used to deliver the content decided by a consensus instance directly to
                                 // a Recoverable object. It is useful to allow the application to create a log and
                                 // store the proof associated with decisions (which are needed by replicas
@@ -324,14 +327,58 @@ public class ServiceReplica {
                                 if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
                                 TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
 
-                                if (response != null) {
-                                    response.setToXACMLNop(); // qiwei, add xtype
-                                    if (response.reply.getContent()==null) {
-                                        logger.info("but the reply is null");
-                                    } else {
-                                        replier.manageReply(response, msgCtx);
+                                switch (msgCtx.getXtype()) {
+                                    case XACML_UPDATE: {
+                                        if (response != null) {
+                                            response.setToXACMLNop(); // qiwei, add xtype
+                                            if (response.reply.getContent()==null) {
+                                                logger.info("but the reply is null");
+                                            } else {
+                                                replier.manageReply(response, msgCtx);
+                                            }
+                                        } else {
+                                            logger.info("XACML_UPDATE executed returns nothing!");
+                                        }
+                                        break;
+                                    }
+                                    case XACML_QUERY: {
+                                        tomLayer.echoManager.setupWait(new TXid(msgCtx.getConsensusId(), msgCtx.getOrderInBlock()),
+                                                msgCtx.getExecutorIds());
+
+                                        if (POrder.contains(msgCtx.getExecutorIds(), id)) {
+                                            // send echo to others
+                                            EchoMessage em = new EchoMessage(this.id, msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+                                            logger.info("send echo after executing from {} --> {}", this.id, targets);
+                                            this.tomLayer.getCommunication().getServersConn().send(targets, em, true);
+
+                                            response.setToXACMLNop(); // qiwei, add xtype
+                                            if (response.reply.getContent()==null) {
+                                                logger.info("the reply after executing XACML_QUERY is null, strange");
+                                            } else {
+                                                replier.manageReply(response, msgCtx);
+                                                logger.info("I am POrder {}, executed an XACML_QUERY, sended the reply", id);
+                                            }
+                                        }
+                                        break;
+                                    }
+                                    case XACML_RE_EXECUTED: {
+                                        break;
+                                    }
+                                    case XACML_RESPONDED: {
+                                        break;
                                     }
                                 }
+
+                                if (msgCtx.getXtype()==XACMLType.XACML_QUERY) {
+                                    // todo, re_execute type also need this
+
+
+                                }
+
+
+
+
+
 
                             } else if (executor instanceof SingleExecutable) {
                                 

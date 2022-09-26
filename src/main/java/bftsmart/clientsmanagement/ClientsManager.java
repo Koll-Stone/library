@@ -486,11 +486,12 @@ public class ClientsManager {
      */
     public void requestsOrdered(TOMMessage[] requests) {
         clientsLock.lock();
-        logger.debug("Updating client manager");
+        logger.info("Updating client manager");
         for (TOMMessage request : requests) {
             requestOrdered(request);
+            logger.info("cancel timer for a request of type "+request.getXType());
         }
-        logger.debug("Finished updating client manager");
+        logger.info("Finished updating client manager");
         clientsLock.unlock();
     }
 

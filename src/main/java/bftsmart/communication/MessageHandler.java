@@ -15,6 +15,7 @@ limitations under the License.
 */
 package bftsmart.communication;
 
+import bftsmart.tom.server.PDPB.EchoMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +66,11 @@ public class MessageHandler {
 		} else {
 			if (sm.authenticated) {
 				/*** This is Joao's code, related to leader change */
-				if (sm instanceof LCMessage) {
+				if (sm instanceof EchoMessage) {
+//					logger.info("**** gets an echo from "+sm.getSender());
+					tomLayer.echoManager.receiveEcho((EchoMessage) sm);
+
+				} else if (sm instanceof LCMessage) {
 					LCMessage lcMsg = (LCMessage) sm;
 
 					String type = null;

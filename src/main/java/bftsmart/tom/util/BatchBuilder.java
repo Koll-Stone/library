@@ -215,8 +215,8 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int k1 = 1;
-		int k2 = 1;
+		int k1 = 0;
+		int k2 = 0;
 		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
