@@ -15,11 +15,7 @@ limitations under the License.
 */
 package bftsmart.communication.server;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -35,8 +31,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import bftsmart.communication.SystemMessage;
+import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.tom.ServiceReplica;
+import bftsmart.tom.server.PDPB.EchoMessage;
 import bftsmart.tom.util.TOMUtil;
 import java.net.InetAddress;
 import java.util.Arrays;
@@ -270,6 +268,21 @@ public class ServersCommunicationLayer extends Thread {
         }
 
         byte[] data = bOut.toByteArray();
+
+        if (sm instanceof EchoMessage) {
+            logger.debug("length of the echo message is {}", data.length);
+            try {
+
+                ByteArrayInputStream tmp1 = new ByteArrayInputStream(data);
+                Object tmp2 = new ObjectInputStream(tmp1).readObject();
+//                EchoMessage em = (EchoMessage) tmp;
+                logger.debug("read object from stream succeeds.");
+            } catch (ClassNotFoundException ex) {
+                logger.debug("read object from stream fails, class not found");
+            } catch (IOException ex) {
+                logger.debug("read object from stream falls, io exception");
+            }
+        }
         
         // this shuffling is done to prevent the replica with the lowest ID/index  from being always
         // the last one receiving the messages, which can result in that replica  to become consistently

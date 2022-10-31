@@ -24,7 +24,7 @@ import bftsmart.communication.SystemMessage;
 
 
 /**
- * This class represents a message used in a epoch of a consensus instance.
+ * This class represents a message used in an epoch of a consensus instance.
  */
 public class ConsensusMessage extends SystemMessage {
 
@@ -102,9 +102,7 @@ public class ConsensusMessage extends SystemMessage {
             out.writeBoolean(true);
             out.writeObject(proof);
 
-        }
-        
-        else {
+        } else {
             out.writeBoolean(false);
         }
 

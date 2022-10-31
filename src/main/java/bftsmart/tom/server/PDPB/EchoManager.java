@@ -29,7 +29,7 @@ public class EchoManager {
     public void setupWait(TXid tid, int[] executorId) {
         receivedEchos.put(tid, new HashSet<Integer>());
         expectedHappyExecutors.put(tid, executorId);
-        logger.info("setup executor Ids, wait for them");
+//        logger.info("set executor Ids, wait for them");
     }
 
     public void setupWaitSecondTime(TXid tid, int[] exxcutorId) {
@@ -43,19 +43,20 @@ public class EchoManager {
             receivedEchos.put(tid, new HashSet<Integer>());
         }
         receivedEchos.get(tid).add(sender);
+//        logger.info("add {} to received echo", sender);
 
         if (expectedBackupExecutors.get(tid)==null) {
             // means only wait for happy executors
             int coun = 0;
             // block until exepectedHappyExecutor is set
 
-            for (int rid:expectedHappyExecutors.get(tid)) {
+            for (int rid:receivedEchos.get(tid)) {
                 if (happyContain(rid)) {
                     coun++;
                 }
                 if (coun>=replyQuorum) {
                     // get enough echo!
-                    logger.info("get enough echo!");
+                    logger.info("get {} echo, enough {}", coun, expectedHappyExecutors.get(tid));
                 }
             }
         } else {
@@ -66,7 +67,7 @@ public class EchoManager {
                 }
                 if (coun>=replyQuorum) {
                     // get enough echo!
-                    logger.info("get enough echo!");
+                    logger.info("get {} echo, enough", coun);
                 }
             }
         }

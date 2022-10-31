@@ -360,7 +360,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                 } else {
                     msg.setToXACMLQuery();
                 }
-                logger.debug("set request type to " + msg.getXType());
+//                logger.debug("set request type to " + msg.getXType());
             }
 
             if (clientsManager.requestReceived(msg, fromClient, communication)) {

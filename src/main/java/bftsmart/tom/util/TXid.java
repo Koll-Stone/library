@@ -17,6 +17,10 @@ public class TXid {
         return res;
     }
 
+    public String toString() {
+        return String.valueOf(x)+","+String.valueOf(y);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

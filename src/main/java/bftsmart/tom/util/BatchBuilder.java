@@ -16,9 +16,7 @@ limitations under the License.
 package bftsmart.tom.util;
 
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 import bftsmart.clientsmanagement.RequestList;
 import bftsmart.reconfiguration.ServerViewController;
@@ -160,7 +158,7 @@ public final class BatchBuilder {
 	}
 
 	public byte[] makeBatchForPropose(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures, int ths) {
-		// qiwei, seperate XACML_UPDATE and XACML_QUERU
+		// qiwei, separate XACML_UPDATE and XACML_QUERU
 		RequestList updatemsgs = new RequestList();
 		RequestList querymsgs = new RequestList();
 		int updatenum = 0;
@@ -215,9 +213,9 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int k1 = 0;
-		int k2 = 0;
-		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, k1, k2, totalMessageSize,
+		int rexnum = 0;
+		int respnum = 0;
+		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, rexnum, respnum, totalMessageSize,
 				useSignatures, messages, signatures, ths);
 	}
 
@@ -272,8 +270,12 @@ public final class BatchBuilder {
 
 			// write executor indicator after each query request
 			proposalBuffer.putInt(ths+1);
+			int[] targets = {0,1,2,3};
+			Integer[] targetShuffled = Arrays.stream(targets).boxed().toArray(Integer[]::new);
+			Collections.shuffle(Arrays.asList(targetShuffled), new Random(System.nanoTime()));
+//			logger.info("shuffled target: {}", targetShuffled);
 			for (int j=0; j<ths+1; j++) {
-				proposalBuffer.putInt(j);
+				proposalBuffer.putInt(targetShuffled[j]);
 			}
 			// write executor indicator after each query request
 		}

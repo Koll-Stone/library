@@ -348,15 +348,16 @@ public class ServiceReplica {
                                         if (POrder.contains(msgCtx.getExecutorIds(), id)) {
                                             // send echo to others
                                             EchoMessage em = new EchoMessage(this.id, msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
-                                            logger.info("send echo after executing from {} --> {}", this.id, targets);
-                                            this.tomLayer.getCommunication().getServersConn().send(targets, em, true);
+
+                                            this.tomLayer.getCommunication().send(targets, em);
+                                            logger.info("sent echo after executing from {} --> {}", this.id, targets);
 
                                             response.setToXACMLNop(); // qiwei, add xtype
                                             if (response.reply.getContent()==null) {
                                                 logger.info("the reply after executing XACML_QUERY is null, strange");
                                             } else {
                                                 replier.manageReply(response, msgCtx);
-                                                logger.info("I am POrder {}, executed an XACML_QUERY, sended the reply", id);
+                                                logger.info("I am POrder {}, executed an XACML_QUERY, sent the reply", id);
                                             }
                                         }
                                         break;
@@ -374,10 +375,6 @@ public class ServiceReplica {
 
 
                                 }
-
-
-
-
 
 
                             } else if (executor instanceof SingleExecutable) {

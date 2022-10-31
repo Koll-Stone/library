@@ -489,7 +489,7 @@ public class ClientsManager {
         logger.info("Updating client manager");
         for (TOMMessage request : requests) {
             requestOrdered(request);
-            logger.info("cancel timer for a request of type "+request.getXType());
+            logger.info("cancel timer for a request "+request.toString());
         }
         logger.info("Finished updating client manager");
         clientsLock.unlock();
