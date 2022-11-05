@@ -400,6 +400,7 @@ public class ClientsManager {
             }
             
             //it is a valid new message and I have to verify it's signature
+            logger.debug("checking message from client {} validity", clientData.getClientId());
             if (isValid &&
                     ((engine != null && benchMsg != null && benchSig != null && TOMUtil.verifySigForBenchmark(engine, benchMsg, benchSig)) 
                             || (((!request.signed) || clientData.verifySignature(request.serializedMessage, request.serializedMessageSignature)) // message is either not signed or if it is signed the signature is valid
@@ -411,7 +412,7 @@ public class ClientsManager {
                 //insert it in the pending requests of this client
 
                 request.recvFromClient = fromClient;
-                logger.debug("add a request of type "+ request.getReqType() + " to clientsManager pendingrequests");
+                logger.debug("add a request of type {} to clientsManager pendingrequests with size {}", request.getXType(), request.serializedMessage.length);
                 clientData.getPendingRequests().add(request); 
                 clientData.setLastMessageReceived(request.getSequence());
                 clientData.setLastMessageReceivedTime(request.receptionTime);

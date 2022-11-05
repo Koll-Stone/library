@@ -19,6 +19,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
 import bftsmart.reconfiguration.ServerViewController;
@@ -292,9 +294,10 @@ public final class BatchReader {
                 int key2 = proposalBuffer.getInt();
                 tm.setReferenceTxId(new TXid(key1, key2));
                 respondedRequests[i] = tm;
-//                logger.info("decode a responded tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+                logger.info("decode a responded tx ({}, {}) ", key1, key2);
             }
-
+        } else {
+            logger.info("there is no responded message in the block");
         }
 
 
@@ -332,13 +335,18 @@ public final class BatchReader {
 
 
     public TOMMessage[] extractClientRequests(TOMMessage[] allRequests) {
-        int leng = 0;
+
+        List<TOMMessage> tmp = new LinkedList<TOMMessage>();
         for (TOMMessage tm: allRequests) {
-            if (tm.getXType()== XACMLType.XACML_UPDATE || tm.getXType()==XACMLType.XACML_QUERY) leng++;
+            if (tm.getXType()== XACMLType.XACML_UPDATE || tm.getXType()==XACMLType.XACML_QUERY) tmp.add(tm);
         }
-        TOMMessage[] requests = Arrays.copyOf(allRequests, leng);
-//		TOMMessage[] requests = new TOMMessage[leng];
-//		for (int i=0; i<leng; i++) {
+        TOMMessage[] requests = tmp.toArray(new TOMMessage[tmp.size()]);
+//        TOMMessage[] requests = new TOMMessage[tmp.size()];
+//        System.arraycopy(tmp,0, requests, 0, tmp.size());
+
+
+//		TOMMessage[] requests = new TOMMessage[10];
+//		for (int i=0; i<10; i++) {
 //			requests[i] = allRequests[i];
 //		}
 

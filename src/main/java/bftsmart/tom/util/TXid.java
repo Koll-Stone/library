@@ -17,8 +17,12 @@ public class TXid {
         return res;
     }
 
+    public int getX() {return x;}
+
+    public int getY() {return y;}
+
     public String toString() {
-        return String.valueOf(x)+","+String.valueOf(y);
+        return "(" + String.valueOf(x)+" ,"+String.valueOf(y) + ")";
     }
 
     @Override

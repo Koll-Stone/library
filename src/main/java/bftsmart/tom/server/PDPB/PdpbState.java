@@ -17,17 +17,27 @@ public class PdpbState {
     private Map<TXid, int[]> happyExecutors; // map: (blockHeight, ind) -> executor ids
     private Map<TXid, int[]> backupExecutors; // map: (blockHeight, ind) -> executor ids
 
-    private ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+    private ReentrantReadWriteLock qoLock = new ReentrantReadWriteLock();
+    private ReentrantReadWriteLock urepLock = new ReentrantReadWriteLock();
+
     private Timer timer = new Timer("query happy execution timer");
     private boolean enabled = true;
     private QeuryTimerTask qtTask = null;
 
-    PdpbState() {
+    public PdpbState() {
         allOpArs = new HashMap<TXid, MessageContext>();
         queOrdered = new HashSet<TXid>();
         opUnresp = new HashSet<TXid>();
         happyExecutors = new HashMap<TXid, int[]>();
         backupExecutors = new HashMap<TXid, int[]>();
+    }
+
+    public List<TXid> getOpUnrespList() {
+        List<TXid> res = new LinkedList<TXid>();
+        for (TXid tid:opUnresp) {
+            res.add(tid);
+        }
+        return res;
     }
 
     public void addOpAr(TXid tid, MessageContext mctx) {
@@ -43,18 +53,18 @@ public class PdpbState {
     }
 
     public void watch(TXid txid) {
-        rwLock.writeLock().lock();
+        qoLock.writeLock().lock();
         queOrdered.add(txid);
         logger.info("activate timer for txid "+txid.toString());
         if (queOrdered.size()>=1 && enabled) startTimer();
-        rwLock.writeLock().unlock();
+        qoLock.writeLock().unlock();
     }
 
     public void unwatch(TXid txid) {
-        rwLock.writeLock().lock();
-        queOrdered.remove(txid);
-        logger.info("cancel timer for txid"+txid.toString());
-        rwLock.writeLock().unlock();
+        qoLock.writeLock().lock();
+        if (queOrdered.remove(txid) && queOrdered.isEmpty()) stopTimer();
+        logger.info("cancel response timer for txid "+txid.toString());
+        qoLock.writeLock().unlock();
     }
 
     public void startTimer() {
@@ -65,11 +75,22 @@ public class PdpbState {
         }
     }
 
+    public void stopTimer() {
+        if (qtTask != null) {
+            qtTask.cancel();
+            logger.info("stops response timer");
+            qtTask = null;
+        }
+    }
+
     class QeuryTimerTask extends TimerTask {
         public void run() {
+            urepLock.writeLock().lock();
             for (TXid tid: queOrdered) {
                 opUnresp.add(tid);
+                logger.info("add tx ({}, {}) to opUnresp", tid.getX(), tid.getY());
             }
+            urepLock.writeLock().unlock();
             qtTask = null;
             queOrdered.clear();
         }

@@ -157,7 +157,7 @@ public final class BatchBuilder {
 
 	}
 
-	public byte[] makeBatchForPropose(List<TOMMessage> msgs, int numNounces, long timestamp, boolean useSignatures, int ths) {
+	public byte[] makeBatchForPropose(List<TOMMessage> msgs, List<TXid> resplist, int numNounces, long timestamp, boolean useSignatures, int ths) {
 		// qiwei, separate XACML_UPDATE and XACML_QUERU
 		RequestList updatemsgs = new RequestList();
 		RequestList querymsgs = new RequestList();
@@ -214,16 +214,18 @@ public final class BatchBuilder {
 
 		// return the batch
 		int rexnum = 0;
-		int respnum = 0;
-		return createBatchForPropose(timestamp, numNounces,rnd.nextLong(), updatenum, querynum, rexnum, respnum, totalMessageSize,
-				useSignatures, messages, signatures, ths);
+		int respnum = resplist.size();
+		return createBatchForPropose(timestamp, numNounces, rnd.nextLong(), updatenum, querynum, rexnum, respnum, totalMessageSize,
+				useSignatures, messages, resplist, signatures, ths);
 	}
 
-	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys, int numberOfReexecuted,
-										 int numberOfResponded, int totalMessagesSize, boolean useSignatures, byte[][] messages, byte[][] signatures,
-										 int ths) {
+	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys,
+										 int numberOfReexecuted, int numberOfResponded, int totalMessagesSize, boolean useSignatures,
+										 byte[][] messages, List<TXid> resplist, byte[][] signatures, int ths) {
 		int sigsSize = 0;
 		int numberOfMessages = numberOfUpdates + numberofQuerys;
+		logger.info("the created block will have {} updates, {} querys, {} re-executions and {} responses",
+				numberOfUpdates, numberofQuerys, numberOfReexecuted, numberOfResponded);
 
 		if (useSignatures) {
 
@@ -301,8 +303,8 @@ public final class BatchBuilder {
 //		logger.info("write responded txs");
 		if (numberOfResponded>0) {
 			for (int i=0; i<numberOfResponded; i++) {
-				proposalBuffer.putInt(10081);
-				proposalBuffer.putInt(452);
+				proposalBuffer.putInt(resplist.get(i).getX());
+				proposalBuffer.putInt(resplist.get(i).getY());
 //				logger.info("write responded tx index, do nothing...");
 			}
 		}

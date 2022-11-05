@@ -67,7 +67,6 @@ public class MessageHandler {
 			if (sm.authenticated) {
 				/*** This is Joao's code, related to leader change */
 				if (sm instanceof EchoMessage) {
-					logger.info(" gets an echo from "+sm.getSender());
 					tomLayer.echoManager.receiveEcho((EchoMessage) sm);
 
 				} else if (sm instanceof LCMessage) {

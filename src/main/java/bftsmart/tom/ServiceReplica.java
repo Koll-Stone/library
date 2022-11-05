@@ -283,9 +283,10 @@ public class ServiceReplica {
             TOMMessage firstRequest = requestsFromConsensus[0];
             int requestCount = 0;
             noop = true;
+            logger.info("total number of message in service replica is {}", requestsFromConsensus.length);
             for (TOMMessage request : requestsFromConsensus) {
                 
-                logger.debug("Processing TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session " + request.getSession() + " decided in consensus " + consId[consensusCount]);
+                logger.info("Processing TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session " + request.getSession() + " decided in consensus " + consId[consensusCount]);
 
                 if (request.getViewID() == SVController.getCurrentViewId()) {
 
@@ -582,4 +583,6 @@ public class ServiceReplica {
     public int getId() {
         return id;
     }
+
+    public TOMLayer getTomLayer() {return tomLayer;}
 }

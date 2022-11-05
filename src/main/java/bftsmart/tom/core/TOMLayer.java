@@ -33,23 +33,23 @@ import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.RequestsTimer;
 import bftsmart.tom.server.PDPB.EchoManager;
+import bftsmart.tom.server.PDPB.PdpbState;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.RequestVerifier;
 import bftsmart.tom.util.BatchBuilder;
 import bftsmart.tom.util.BatchReader;
 import bftsmart.tom.util.TOMUtil;
+import bftsmart.tom.util.TXid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.security.*;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -87,6 +87,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     public ClientsManager clientsManager;
 
     public EchoManager echoManager;
+    public PdpbState pdpbstate;
     /**
      * The id of the consensus being executed (or -1 if there is none)
      */
@@ -184,6 +185,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         // I have a verifier, now create clients manager
         this.clientsManager = new ClientsManager(this.controller, requestsTimer, verifier1);
         this.echoManager = new EchoManager(this.controller.getCurrentViewF()+1);
+        this.pdpbstate = new PdpbState();
 
 
         this.syncher = new Synchronizer(this); // create synchronizer
@@ -403,10 +405,18 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         }
         dec.batchSize = numberOfMessages;
 
-        logger.debug("Creating a PROPOSE with " + numberOfMessages + " txs");
+
+        List<TXid> opunrespList = pdpbstate.getOpUnrespList();
+
+        List<TXid> oprespList = echoManager.getOpRespList();
+        logger.info("Creating a PROPOSE for CI " + dec.getConsensusId() + " with " + numberOfMessages + " txs, " + oprespList.size() + " response indicators, "+
+                opunrespList.size() + " unresponse indicators ");
+//        oprespList.clear();
 
 
-        return bb.makeBatchForPropose(pendingRequests, numberOfNonces, System.currentTimeMillis(),
+
+
+        return bb.makeBatchForPropose(pendingRequests, oprespList, numberOfNonces, System.currentTimeMillis(),
                 controller.getStaticConf().getUseSignatures() == 1, controller.getCurrentViewF());
     }
 
@@ -505,6 +515,13 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                     continue;
 
                 }
+                try {
+                    TimeUnit.MILLISECONDS.sleep(200);
+                    // todo, delete this!
+                } catch (InterruptedException e) {
+                    logger.warn("cannot sleep");
+                }
+
                 execManager.getProposer().startConsensus(execId, createPropose(dec));
             }
         }
@@ -550,46 +567,70 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             //TODO: verify Timestamps and Nonces
 //            logger.debug("try to deserizlize requests from the propose msg");
             TOMMessage[] allRequests = batchReader.deserialiseRequestsInPropose(this.controller);
-            TOMMessage[] requests = batchReader.extractClientRequests(allRequests);
+            List<TOMMessage> tmp = new LinkedList<TOMMessage>();
+            for (TOMMessage tm: allRequests) {
+                if (tm.getXType()== XACMLType.XACML_UPDATE || tm.getXType()==XACMLType.XACML_QUERY
+                        || tm.getXType()==XACMLType.XACML_RESPONDED) tmp.add(tm);
+            }
+            TOMMessage[] requests = tmp.toArray(new TOMMessage[tmp.size()]);
 
-            logger.debug("requests in propose msg are deserialised: there are "+requests.length+" requests");
+            logger.info("requests in propose msg are deserialised: there are "+requests.length+" requests in total");
 
             if (addToClientManager) {
 
                 //use parallelization to validate the request
-                final CountDownLatch latch = new CountDownLatch(requests.length);
+                int lnum = 0;
+                for (TOMMessage request: requests) {
+                    if (request.getXType()==XACMLType.XACML_UPDATE || request.getXType()==XACMLType.XACML_QUERY) {
+                        lnum++;
+                    }
+                }
+                final CountDownLatch latch = new CountDownLatch(lnum);
 
                 for (TOMMessage request : requests) {
+                    if (request.getXType()==XACMLType.XACML_UPDATE || request.getXType()==XACMLType.XACML_QUERY) {
+                        verifierExecutor.submit(() -> {
+                            try {
+                                //notifies the client manager that this request was received and get
+                                //the result of its validation
+                                logger.debug("Received TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session "
+                                        + request.getSession());
+                                request.isValid = clientsManager.requestReceived(request, false);
+                                if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
+                            }
+                            catch (Exception e) {
 
-                    verifierExecutor.submit(() -> {
-                        try {
-                            //notifies the client manager that this request was received and get
-                            //the result of its validation
-                            request.isValid = clientsManager.requestReceived(request, false);
-                            if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
-                        }
-                        catch (Exception e) {
+                                logger.error("Error while validating requests", e);
+                                if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
 
-                            logger.error("Error while validating requests", e);
-                            if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
+                            }
 
-                        }
+                            latch.countDown();
+                        });
+                    } else {
+                        logger.info("skip XACML_REX msg and XACML_RESP msg");
+                    }
 
-                        latch.countDown();
-                    });
                 }
 
                 latch.await();
 
                 for (TOMMessage request : requests) {
-                    if (!request.isValid) {
-                        logger.warn("Request {} could not be added to the pending messages queue of its respective client", request);
-                        return null;
+                    if (request.getXType()==XACMLType.XACML_UPDATE || request.getXType()==XACMLType.XACML_QUERY) {
+                        if (!request.isValid) {
+                            logger.warn("Request {} could not be added to the pending messages queue of its respective client", request);
+                            return null;
+                        }
+                    } else if (request.getXType()==XACMLType.XACML_RESPONDED) {
+                        if (!echoManager.checkResponded(request.getReferenceTxId())) {
+                            logger.info("I do not agree with the leader " + request.getReferenceTxId().toString() + " is responded");
+                            return null;
+                        }
                     }
                 }
             }
 
-            logger.debug("Successfully deserialized batch");
+            logger.info("Successfully deserialized batch");
 
             return allRequests;
 
