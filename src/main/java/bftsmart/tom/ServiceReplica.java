@@ -19,6 +19,7 @@ package bftsmart.tom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -303,7 +304,10 @@ public class ServiceReplica {
                                     consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false,
                                     request.getXType(), request.getExecutorIds(), requestCount);
                             msgCtx.setReferenceTXId(request.getReferenceTxId());
-                            logger.info("this request is " + request.getXType() + ", executors: "+ Arrays.toString(request.getExecutorIds()));
+                            logger.info("the relationship is request {} <-> [{}, {}]", request.toString(),
+                                    msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+//                            logger.info("this request is " + request.getXType() + ", executors number is " +request.getExecutorIds().length + ": "
+//                                    + Arrays.toString(request.getExecutorIds()));
 
                             if (requestCount + 1 == requestsFromConsensus.length) {
                                 
@@ -331,7 +335,7 @@ public class ServiceReplica {
                                 switch (msgCtx.getXtype()) {
                                     case XACML_UPDATE: {
                                         if (response != null) {
-                                            response.setToXACMLNop(); // qiwei, add xtype
+                                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
                                             if (response.reply.getContent()==null) {
                                                 logger.info("but the reply is null");
                                             } else {
@@ -350,20 +354,45 @@ public class ServiceReplica {
                                             // send echo to others
                                             EchoMessage em = new EchoMessage(this.id, msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
 
-                                            this.tomLayer.getCommunication().send(targets, em);
-                                            logger.info("sent echo after executing from {} --> {}", this.id, targets);
-
-                                            response.setToXACMLNop(); // qiwei, add xtype
-                                            if (response.reply.getContent()==null) {
-                                                logger.info("the reply after executing XACML_QUERY is null, strange");
+                                            // skip sending echo to test TX_REX, begin
+                                            int oracle = ThreadLocalRandom.current().nextInt(0,3);
+                                            if (oracle==0 && id==1) {
+                                                logger.info("avoid sending echo for tx ({}, {})", msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
                                             } else {
-                                                replier.manageReply(response, msgCtx);
-                                                logger.info("I am POrder {}, executed an XACML_QUERY, sent the reply", id);
+                                                this.tomLayer.getCommunication().send(targets, em);
+                                                // skip sending echo to test TX_REX, end
+                                                response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                                                if (response.reply.getContent()==null) {
+                                                    logger.info("the reply after executing XACML_QUERY is null, strange");
+                                                } else {
+                                                    replier.manageReply(response, msgCtx);
+                                                    logger.info("I am POrder {}, executed an XACML_QUERY, sent the reply", id);
+                                                }
                                             }
                                         }
                                         break;
                                     }
                                     case XACML_RE_EXECUTED: {
+                                        if (response != null) {
+                                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                                            if (response.reply.getContent()==null) {
+                                                logger.info("but the reply is null");
+                                            } else {
+                                                logger.info("process re_executed tx, begin");
+                                                // re-construct the response message, begin
+                                                MessageContext mctmp = ((POrder) executor).getpOrderState().getTXContext(msgCtx.getReferenceTXId());
+                                                byte[] commtmp = ((POrder) executor).getpOrderState().getOpContent(msgCtx.getReferenceTXId());
+                                                TOMMessage resptmp = mctmp.recreateTOMMessage(commtmp);
+                                                resptmp.reply = new TOMMessage(id, resptmp.getSession(), resptmp.getSequence(), resptmp.getOperationId(),
+                                                        response.reply.getContent(), SVController.getCurrentViewId(), resptmp.getReqType());
+                                                replier.manageReply(resptmp, mctmp);
+                                                logger.info("process re_executed tx, end");
+                                                // re-construct the response message, end
+
+                                            }
+                                        } else {
+                                            logger.info("response for XACML_RE_EXECUTE is null, strange");
+                                        }
                                         break;
                                     }
                                     case XACML_RESPONDED: {

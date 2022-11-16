@@ -33,7 +33,7 @@ import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.RequestsTimer;
 import bftsmart.tom.server.PDPB.EchoManager;
-import bftsmart.tom.server.PDPB.PdpbState;
+import bftsmart.tom.server.PDPB.PDPBState;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.RequestVerifier;
 import bftsmart.tom.util.BatchBuilder;
@@ -87,7 +87,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     public ClientsManager clientsManager;
 
     public EchoManager echoManager;
-    public PdpbState pdpbstate;
+    public PDPBState pdpbstate;
     /**
      * The id of the consensus being executed (or -1 if there is none)
      */
@@ -185,7 +185,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         // I have a verifier, now create clients manager
         this.clientsManager = new ClientsManager(this.controller, requestsTimer, verifier1);
         this.echoManager = new EchoManager(this.controller.getCurrentViewF()+1);
-        this.pdpbstate = new PdpbState();
+        this.pdpbstate = new PDPBState();
+        this.bb.setPdpbState(this.pdpbstate);
 
 
         this.syncher = new Synchronizer(this); // create synchronizer
@@ -200,14 +201,15 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
                     if (clientsManager.havePendingRequests() &&
                             (System.currentTimeMillis() - lastRequest) >= controller.getStaticConf().getBatchTimeout()) {
-
-                        logger.debug("Signaling proposer thread!!");
+                        logger.info("Signaling proposer thread!!");
                         haveMessages();
                     }
                 }
 
             }, 0, controller.getStaticConf().getBatchTimeout());
         }
+
+
     }
 
     /**
@@ -291,7 +293,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
      */
     public void setInExec(int inEx) {
         proposeLock.lock();
-        logger.debug("Modifying inExec from " + this.inExecution + " to " + inEx);
+        logger.info("Modifying inExec from " + this.inExecution + " to " + inEx);
         this.inExecution = inEx;
         if (inEx == -1 && !isRetrievingState()) {
             canPropose.signalAll();
@@ -359,6 +361,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             if(msg.getReqType()==TOMMessageType.ORDERED_REQUEST) {
                 if (msg.getSender()<clientsManager.PAPNum) {
                     msg.setToXACMLUpdate();
+//                    clientsManager.setSpecialUpdate(msg);
                 } else {
                     msg.setToXACMLQuery();
                 }
@@ -368,7 +371,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             if (clientsManager.requestReceived(msg, fromClient, communication)) {
 
                 if(controller.getStaticConf().getBatchTimeout() == -1) {
-                    haveMessages();
+                    if (msg.getXType()==XACMLType.XACML_UPDATE)
+                        haveMessages();
                 } else {
                     if (!clientsManager.isNextBatchReady()) {
                         lastRequest = System.currentTimeMillis();
@@ -392,31 +396,62 @@ public final class TOMLayer extends Thread implements RequestReceiver {
      */
     public byte[] createPropose(Decision dec) {
         // Retrieve a set of pending requests from the clients manager
-        RequestList pendingRequests = clientsManager.getPendingRequests();
+        RequestList pendingRequests = new RequestList();
+
+        if(dec.getConsensusId() % this.controller.getStaticConf().getCheckpointPeriod()==0) {
+
+//            RequestList tmp = clientsManager.getPendingRequests();
+//            logger.info("filtering requests returned by client manager, it has {} requests now, checkpoint period is {}", tmp.size(),
+//                    this.controller.getStaticConf().getCheckpointPeriod());
+//            for (TOMMessage msg: tmp) {
+//                if (msg.getXType()==XACMLType.XACML_UPDATE) {
+//                    pendingRequests.addLast(msg);
+//                } else {
+//                    logger.info("this request is not included in block {}", msg.toString());
+//                }
+//            }
+//            logger.info("filtering requests done, it has {} requests now", pendingRequests.size());
+            pendingRequests = clientsManager.getPendingRequestsForCheckpointBlock();
+        } else {
+            pendingRequests = clientsManager.getPendingRequests();
+        }
 
         logger.info("Number of pending requests to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
         int numberOfMessages = pendingRequests.size(); // number of messages retrieved
         int numberOfNonces = this.controller.getStaticConf().getNumberOfNonces(); // ammount of nonces to be generated
 
-        //for benchmarking
-        if (dec.getConsensusId() > -1) { // if this is from the leader change, it doesnt matter
-            dec.firstMessageProposed = pendingRequests.getFirst();
-            dec.firstMessageProposed.consensusStartTime = System.nanoTime();
-        }
-        dec.batchSize = numberOfMessages;
 
-
-        List<TXid> opunrespList = pdpbstate.getOpUnrespList();
 
         List<TXid> oprespList = echoManager.getOpRespList();
+        List<TXid> opunrespList = pdpbstate.getOpUnrespList();
+        opunrespList.removeAll(oprespList);    // opunrespList = opunrespList - oprespList
+        if(dec.getConsensusId() % this.controller.getStaticConf().getCheckpointPeriod()==0) {
+            opunrespList = pdpbstate.getWatchedList();
+            opunrespList.removeAll(oprespList);
+        }
+
+        int[] allExecutors = new int[controller.getCurrentViewN()];
+        for (int i=0; i<controller.getCurrentViewN(); i++) allExecutors[i] = i;
+
+
+
+
+
+
         logger.info("Creating a PROPOSE for CI " + dec.getConsensusId() + " with " + numberOfMessages + " txs, " + oprespList.size() + " response indicators, "+
                 opunrespList.size() + " unresponse indicators ");
 //        oprespList.clear();
 
+        //for benchmarking
+        if (dec.getConsensusId() > -1) { // if this is from the leader change, it doesnt matter
+            dec.firstMessageProposed = pendingRequests.getFirst();
+//            logger.info("this is ok");
+            dec.firstMessageProposed.consensusStartTime = System.nanoTime();
+//            logger.info("this is also ok");
+        }
+        dec.batchSize = numberOfMessages;
 
-
-
-        return bb.makeBatchForPropose(pendingRequests, oprespList, numberOfNonces, System.currentTimeMillis(),
+        return bb.makeBatchForPropose(pendingRequests, opunrespList, oprespList, numberOfNonces, System.currentTimeMillis(),
                 controller.getStaticConf().getUseSignatures() == 1, controller.getCurrentViewF());
     }
 
@@ -442,7 +477,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
             // blocks until this replica learns to be the leader for the current epoch of the current consensus
             leaderLock.lock();
-            logger.debug("Next leader for CID=" + (getLastExec() + 1) + ": " + execManager.getCurrentLeader());
+            logger.info("Next leader for CID=" + (getLastExec() + 1) + ": " + execManager.getCurrentLeader());
 
             //******* EDUARDO BEGIN **************//
             if (execManager.getCurrentLeader() != this.controller.getStaticConf().getProcessId()) {
@@ -458,14 +493,14 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             proposeLock.lock();
 
             if (getInExec() != -1) { //there is some consensus running
-                logger.debug("Waiting for consensus " + getInExec() + " termination.");
+                logger.info("Waiting for consensus " + getInExec() + " termination.");
                 canPropose.awaitUninterruptibly();
             }
             proposeLock.unlock();
 
             if (!doWork) break;
 
-            logger.debug("I'm the leader.");
+            logger.info("I'm the leader.");
 
             // blocks until there are requests to be processed/ordered
             messagesLock.lock();
@@ -473,19 +508,19 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                     (controller.getStaticConf().getBatchTimeout() > -1
                             && !clientsManager.isNextBatchReady())) {
 
-                logger.debug("Waiting for enough requests");
+                logger.info("Waiting for enough requests");
                 haveMessages.awaitUninterruptibly();
-                logger.debug("Got enough requests");
+                logger.info("Got enough requests");
             }
             messagesLock.unlock();
 
             if (!doWork) break;
 
-            logger.debug("There are requests to be ordered. I will propose.");
+            logger.info("There are requests to be ordered. I will propose.");
 
 
             if ((execManager.getCurrentLeader() == this.controller.getStaticConf().getProcessId()) && //I'm the leader
-                    (clientsManager.havePendingRequests()) && //there are messages to be ordered
+//                    (clientsManager.havePendingRequests()) && //there are messages to be ordered
                     (getInExec() == -1)) { //there is no consensus in execution
 
                 // Sets the current consensus
@@ -521,7 +556,6 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                 } catch (InterruptedException e) {
                     logger.warn("cannot sleep");
                 }
-
                 execManager.getProposer().startConsensus(execId, createPropose(dec));
             }
         }
@@ -700,6 +734,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     }
 
     public void shutdown() {
+        logger.info("shutdown");
         this.doWork = false;
         imAmTheLeader();
         haveMessages();

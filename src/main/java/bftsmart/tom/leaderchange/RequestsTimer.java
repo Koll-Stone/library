@@ -181,7 +181,7 @@ public class RequestsTimer {
                 if (!request.timeout) {
                     
 //                    logger.info("Forwarding requests {} to leader", request);
-                    logger.info("forwarding timeouted request to leader, its type is "+request.toString());
+                    logger.info("forwarding timeouted request to leader {} ", request.toString());
 
                     request.signed = request.serializedMessageSignature != null;
                     tomLayer.forwardRequestToLeader(request);

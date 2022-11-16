@@ -24,6 +24,7 @@ import bftsmart.tom.MessageContext;
 import bftsmart.tom.core.messages.TOMMessage;
 
 import bftsmart.tom.core.messages.XACMLType;
+import bftsmart.tom.server.PDPB.PDPBState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,14 +38,20 @@ import org.slf4j.LoggerFactory;
  */
 public final class BatchBuilder {
     
-        private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	private Random rnd;
 
-        public BatchBuilder(long seed){
-            rnd = new Random(seed);
-            
-        }
+	PDPBState pdpbState;
+
+	public BatchBuilder(long seed){
+		rnd = new Random(seed);
+
+	}
+
+	public void setPdpbState(PDPBState ps) {
+		this.pdpbState = ps;
+	}
 
 	/** build buffer */
 	private byte[] createBatch(long timestamp, int numberOfNonces, long seed, int numberOfMessages, int totalMessagesSize,
@@ -157,7 +164,8 @@ public final class BatchBuilder {
 
 	}
 
-	public byte[] makeBatchForPropose(List<TOMMessage> msgs, List<TXid> resplist, int numNounces, long timestamp, boolean useSignatures, int ths) {
+	public byte[] makeBatchForPropose(List<TOMMessage> msgs, List<TXid> unresplist, List<TXid> resplist,
+									  int numNounces, long timestamp, boolean useSignatures, int ths) {
 		// qiwei, separate XACML_UPDATE and XACML_QUERU
 		RequestList updatemsgs = new RequestList();
 		RequestList querymsgs = new RequestList();
@@ -175,6 +183,10 @@ public final class BatchBuilder {
 					querynum += 1;
 					break;
 				}
+//				case XACML_nop: {
+//					logger.info("a no op will be put into block");
+//					break;
+//				}
 				default:
 					throw new RuntimeException("Should never reach here!");
 			}
@@ -213,15 +225,34 @@ public final class BatchBuilder {
 		}
 
 		// return the batch
-		int rexnum = 0;
+		int rexnum = unresplist.size();
 		int respnum = resplist.size();
+
+		// set executors with load balancing
+		//        int[][] backupexecutors = new int[opunrespList.size()][];
+//        for (int i=0; i<opunrespList.size(); i++) {
+//            backupexecutors[i] = pdpbstate.getFeasibleBackupReplicas(opunrespList.get(i), allExecutors, controller.getCurrentViewF());
+//            logger.info("for re-executed tx {}, the backup executors are {}", opunrespList.get(i).toString(), backupexecutors[i]);
+//        }
+
+		int[][] backupexecutors = null;
+		if (rexnum>0) {
+			backupexecutors = pdpbState.LBForReExecute(unresplist.toArray(new TXid[0]), pdpbState.getF());
+		}
+		int[][] happyexecutors = null;
+		if (querynum>0) {
+			happyexecutors = pdpbState.LBForQuery(querynum, pdpbState.getF()+1);
+		}
+
 		return createBatchForPropose(timestamp, numNounces, rnd.nextLong(), updatenum, querynum, rexnum, respnum, totalMessageSize,
-				useSignatures, messages, resplist, signatures, ths);
+				useSignatures, messages, unresplist, happyexecutors, backupexecutors, resplist, signatures);
 	}
 
 	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys,
 										 int numberOfReexecuted, int numberOfResponded, int totalMessagesSize, boolean useSignatures,
-										 byte[][] messages, List<TXid> resplist, byte[][] signatures, int ths) {
+										 byte[][] messages, List<TXid> unresplist, int[][] happyExecutors, int[][] backupExecutors,
+										 List<TXid> resplist, byte[][] signatures) {
+		int ths = pdpbState.getF();
 		int sigsSize = 0;
 		int numberOfMessages = numberOfUpdates + numberofQuerys;
 		logger.info("the created block will have {} updates, {} querys, {} re-executions and {} responses",
@@ -272,12 +303,12 @@ public final class BatchBuilder {
 
 			// write executor indicator after each query request
 			proposalBuffer.putInt(ths+1);
-			int[] targets = {0,1,2,3};
-			Integer[] targetShuffled = Arrays.stream(targets).boxed().toArray(Integer[]::new);
-			Collections.shuffle(Arrays.asList(targetShuffled), new Random(System.nanoTime()));
+//			int[] targets = {0,1,2,3};
+//			Integer[] targetShuffled = Arrays.stream(targets).boxed().toArray(Integer[]::new);
+//			Collections.shuffle(Arrays.asList(targetShuffled), new Random(System.nanoTime()));
 //			logger.info("shuffled target: {}", targetShuffled);
 			for (int j=0; j<ths+1; j++) {
-				proposalBuffer.putInt(targetShuffled[j]);
+				proposalBuffer.putInt(happyExecutors[i][j]);
 			}
 			// write executor indicator after each query request
 		}
@@ -286,14 +317,15 @@ public final class BatchBuilder {
 //		logger.info("write re-executed txs");
 		proposalBuffer.putInt(numberOfReexecuted);
 		if (numberOfReexecuted>0) {
-			for (int i=0; i<numberOfReexecuted; i++) {
-				proposalBuffer.putInt(20075);
-				proposalBuffer.putInt(121);
-				// write indexes
-				proposalBuffer.putInt(ths+1);
-				for (int j=0; j<ths+1; j++) {
-					proposalBuffer.putInt(j);
+			int i = 0;
+			for (TXid tid: unresplist) {
+				proposalBuffer.putInt(tid.getX());
+				proposalBuffer.putInt(tid.getY());
+				proposalBuffer.putInt(ths);
+				for (int j=0; j<ths; j++) {
+					proposalBuffer.putInt(backupExecutors[i][j]);
 				}
+				i++;
 			}
 		}
 

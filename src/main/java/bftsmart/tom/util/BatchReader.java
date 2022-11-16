@@ -237,7 +237,7 @@ public final class BatchReader {
                             exegroup[k] = proposalBuffer.getInt();
                         }
                         tm.setExecutorIds(exegroup);
-                        logger.info("batchReader: decoding request, executors: " + Arrays.toString(tm.getExecutorIds()));
+                        logger.info("batchReader: decoding request, executor number is {}, executors: {}", exegroup.length, Arrays.toString(tm.getExecutorIds()));
                     }
                     logger.debug("read executor index currently");
                 } catch (Exception e) {
@@ -273,6 +273,7 @@ public final class BatchReader {
                         exegroup[k] = proposalBuffer.getInt();
                     }
                     tm.setExecutorIds(exegroup);
+                    logger.info("decode a re-executed tx {}, executors: {}", tm.getReferenceTxId().toString(), tm.getExecutorIds());
                 } else {
                     throw new RuntimeException("Should never reach here! number of executors responsible for this re-executing should be >0!");
                 }

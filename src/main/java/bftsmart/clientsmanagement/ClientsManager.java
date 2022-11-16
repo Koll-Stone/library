@@ -23,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import bftsmart.communication.ServerCommunicationSystem;
 import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.tom.core.messages.TOMMessage;
+import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.RequestsTimer;
 import bftsmart.tom.server.RequestVerifier;
 import bftsmart.tom.util.TOMUtil;
@@ -48,6 +49,8 @@ public class ClientsManager {
     private ServerViewController controller;
     private RequestsTimer timer;
     private HashMap<Integer, ClientData> clientsData = new HashMap<Integer, ClientData>();
+
+//    private TOMMessage theSpecialUpdate = null;
     public int PAPNum = 5;
     private RequestVerifier verifier;
     
@@ -177,6 +180,95 @@ public class ClientsManager {
         
         /******* END CLIENTS CRITICAL SECTION ******/
         clientsLock.unlock();
+
+//        if (allReq.size()==0) {
+//            allReq.addLast(theSpecialUpdate);
+//            logger.info("there is no client requests, create a default one special XACML_UPDATE instead");
+//        }
+
+        return allReq;
+    }
+
+    public RequestList getPendingRequestsForCheckpointBlock() {
+        RequestList allReq = new RequestList();
+        long allReqSizeInBytes = 0;
+        boolean allReqSizeInBytesExceeded = false;
+
+        clientsLock.lock();
+        /******* BEGIN CLIENTS CRITICAL SECTION ******/
+
+        List<Entry<Integer, ClientData>> clientsEntryList = new ArrayList<>(clientsData.entrySet().size());
+        for (Entry<Integer, ClientData> si: clientsData.entrySet()) {
+            if (si.getKey()<PAPNum) {
+                clientsEntryList.add(si);
+            }
+        }
+
+        if (controller.getStaticConf().getFairBatch()) // ensure fairness
+            Collections.shuffle(clientsEntryList);
+
+        logger.debug("Number of active clients: {}", clientsEntryList.size());
+
+        for (int i = 0; true; i++) {
+
+            Iterator<Entry<Integer, ClientData>> it = clientsEntryList.iterator();
+            int noMoreMessages = 0;
+
+            logger.debug("Fetching requests with internal index {}", i);
+
+            while (it.hasNext()
+                    && allReq.size() < controller.getStaticConf().getMaxBatchSize()
+                    && noMoreMessages < clientsEntryList.size()) {
+
+                ClientData clientData = it.next().getValue();
+                RequestList clientPendingRequests = clientData.getPendingRequests();
+
+                clientData.clientLock.lock();
+
+                logger.debug("Number of pending requests for client {}: {}.", clientData.getClientId(), clientPendingRequests.size());
+
+                /******* BEGIN CLIENTDATA CRITICAL SECTION ******/
+                TOMMessage request = (clientPendingRequests.size() > i) ? clientPendingRequests.get(i) : null;
+
+                /******* END CLIENTDATA CRITICAL SECTION ******/
+                clientData.clientLock.unlock();
+
+                if (request != null) {
+                    if(!request.alreadyProposed) {
+                        if(allReqSizeInBytes + request.serializedMessage.length <= controller.getStaticConf().getMaxBatchSizeInBytes()) {
+
+                            logger.debug("Selected request with sequence number {} from client {}", request.getSequence(), request.getSender());
+
+                            //this client have pending message
+                            request.alreadyProposed = true;
+                            allReq.addLast(request);
+                            allReqSizeInBytes += request.serializedMessage.length;
+                        } else {
+                            allReqSizeInBytesExceeded = true;
+                        }
+                    }
+                } else {
+                    //this client don't have more pending requests
+                    noMoreMessages++;
+                }
+            }
+
+            if(allReq.size() == controller.getStaticConf().getMaxBatchSize() ||
+                    noMoreMessages == clientsEntryList.size() ||
+                    allReqSizeInBytesExceeded) {
+
+                break;
+            }
+        }
+
+        /******* END CLIENTS CRITICAL SECTION ******/
+        clientsLock.unlock();
+
+//        if (allReq.size()==0) {
+//            allReq.addLast(theSpecialUpdate);
+//            logger.info("there is no client requests, create a default one special XACML_UPDATE instead");
+//        }
+
         return allReq;
     }
 
@@ -219,7 +311,7 @@ public class ClientsManager {
 
             if (!reqs.isEmpty()) {
                 for(TOMMessage msg:reqs) {
-                    if(!msg.alreadyProposed) {
+                    if(!msg.alreadyProposed && msg.getXType()== XACMLType.XACML_UPDATE) {
                         havePending = true;
                         break;
                     }
@@ -538,6 +630,12 @@ public class ClientsManager {
         logger.info("ClientsManager cleared.");
 
     }
+
+//    public void setSpecialUpdate(TOMMessage msg) {
+//        if (theSpecialUpdate==null) {
+//            theSpecialUpdate = msg;
+//        }
+//    }
     
     public int numClients() {
         

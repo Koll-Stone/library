@@ -22,7 +22,7 @@ public class TXid {
     public int getY() {return y;}
 
     public String toString() {
-        return "(" + String.valueOf(x)+" ,"+String.valueOf(y) + ")";
+        return "(" + String.valueOf(x)+", "+String.valueOf(y) + ")";
     }
 
     @Override

@@ -274,7 +274,7 @@ public class ServiceProxy extends TOMSender {
 					logger.info("###################TIMEOUT#######################");
 					logger.info("Reply timeout for reqId=" + reqId + ", Replies received: " + receivedReplies);
 					canSendLock.unlock();
-
+					Thread.sleep(1000000);
 					return null;
 				}
 			}
