@@ -110,6 +110,7 @@ public class RequestsTimer {
         //long startInstant = System.nanoTime();
         rwLock.writeLock().lock();
         watched.add(request);
+        logger.info("activate timer for request " + request.toString() + " in normal phase");
         if (watched.size() >= 1 && enabled) startTimer();
         rwLock.writeLock().unlock();
     }
@@ -158,6 +159,7 @@ public class RequestsTimer {
             for (Iterator<TOMMessage> i = watched.iterator(); i.hasNext();) {
                 TOMMessage request = i.next();
                 if ((System.currentTimeMillis() - request.receptionTimestamp ) > t) {
+                    logger.info("activate a timer for request " + request.toString() + "in lc protocol");
                     pendingRequests.add(request);
                 }
             }
@@ -169,13 +171,17 @@ public class RequestsTimer {
         
         if (!pendingRequests.isEmpty()) {
             
-            logger.info("The following requests timed out: " + pendingRequests);
+            logger.info("The following requests timed out: ");
+            for (TOMMessage tm: pendingRequests) {
+                logger.info("request: "+tm.toString());
+            }
             
             for (ListIterator<TOMMessage> li = pendingRequests.listIterator(); li.hasNext(); ) {
                 TOMMessage request = li.next();
                 if (!request.timeout) {
                     
-                    logger.info("Forwarding requests {} to leader", request);
+//                    logger.info("Forwarding requests {} to leader", request);
+                    logger.info("forwarding timeouted request to leader {} ", request.toString());
 
                     request.signed = request.serializedMessageSignature != null;
                     tomLayer.forwardRequestToLeader(request);
@@ -258,7 +264,6 @@ public class RequestsTimer {
             myself[0] = controller.getStaticConf().getProcessId();
 
             communication.send(myself, new LCMessage(-1, TOMUtil.TRIGGER_LC_LOCALLY, -1, null));
-
         }
     }
     

@@ -130,6 +130,7 @@ public class ServerConnection {
                
        //******* EDUARDO BEGIN **************//
         this.useSenderThread = this.controller.getStaticConf().isUseSenderThread();
+//		logger.info("use send thread value is "+this.useSenderThread);
 
         if (useSenderThread && (this.controller.getStaticConf().getTTPId() != remoteId)) {
             new SenderThread().start();
@@ -218,6 +219,7 @@ public class ServerConnection {
 
 					return;
 				} catch (IOException ex) {
+					logger.info("sending data exception at connection between me and {}", remoteId);
 					closeSocket();
 					waitAndConnect();
 					abort = true;
@@ -393,45 +395,66 @@ public class ServerConnection {
         	while (doWork) {
 				if (socket != null && socketInStream != null) {
 
+					int dataLength = -1;
+					byte[] data = null;
+					byte hasMAC = -1;
+					int read = 0;
+
 					try {
 						// read data length
-						int dataLength = socketInStream.readInt();
-						byte[] data = new byte[dataLength];
-
+						dataLength = socketInStream.readInt();
+						data = new byte[dataLength];
 						// read data
-						int read = 0;
+
 						do {
 							read += socketInStream.read(data, read, dataLength - read);
 						} while (read < dataLength);
 
-						byte hasMAC = socketInStream.readByte();
-
+						hasMAC = socketInStream.readByte();
 						logger.trace("Read: {}, HasMAC: {}", read, hasMAC);
 
-						SystemMessage sm = (SystemMessage) (new ObjectInputStream(new ByteArrayInputStream(data))
-								.readObject());
-
-						//The verification it is done for the SSL/TLS protocol.
-						sm.authenticated = true;
-
-						if (sm.getSender() == remoteId) {
-							if (!inQueue.offer(sm)) {
-								logger.warn("Inqueue full (message from " + remoteId + " discarded).");
-							}/* else {
-								logger.trace("Message: {} queued, remoteId: {}", sm.toString(), sm.getSender());
-							}*/
-						}
-					} catch (ClassNotFoundException ex) {
-						logger.info("Invalid message received. Ignoring!");
 					} catch (IOException ex) {
 						if (doWork) {
-							logger.debug("Closing socket and reconnecting");
+							logger.debug("Closing socket and reconnecting, remote id: {}", remoteId);
 							closeSocket();
 							waitAndConnect();
 						}
 					} catch (Exception ex) {
 						logger.info("Processing message failed. Ignoring!");
 					}
+
+
+
+					try {
+						Object tmp = new ObjectInputStream(new ByteArrayInputStream(data))
+								.readObject();
+
+						SystemMessage sm = (SystemMessage) tmp;
+						//The verification it is done for the SSL/TLS protocol.
+						sm.authenticated = true;
+
+						if (sm.getSender() == remoteId) {
+							if (!inQueue.offer(sm)) {
+								logger.warn("Inqueue full (message from " + remoteId + " discarded).");
+							} else {
+								logger.trace("Message: {} queued, remoteId: {}", sm.toString(), sm.getSender());
+							}
+						}
+					} catch (ClassNotFoundException ex) {
+						logger.info("Invalid message received. cannot cast it!");
+					} catch (IOException ex) {
+						if (doWork) {
+							logger.debug("error in readobject. exit, remote id: {}", remoteId);
+							closeSocket();
+							waitAndConnect();
+						}
+					}
+//					catch (Exception ex) {
+//						logger.info("Processing message failed. Ignoring!");
+//					}
+
+
+
 				} else {
 					waitAndConnect();
 				}

@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ServiceProxy extends TOMSender {
     
-        private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	// Locks for send requests and receive replies
 	protected ReentrantLock canReceiveLock = new ReentrantLock();
@@ -274,7 +274,7 @@ public class ServiceProxy extends TOMSender {
 					logger.info("###################TIMEOUT#######################");
 					logger.info("Reply timeout for reqId=" + reqId + ", Replies received: " + receivedReplies);
 					canSendLock.unlock();
-
+					Thread.sleep(1000000);
 					return null;
 				}
 			}
@@ -386,7 +386,6 @@ public class ServiceProxy extends TOMSender {
 			}
 
 			int sameContent = 1;
-			System.out.println("reply request type is" + reply.getReqType());
 			if (reply.getSequence() == reqId && reply.getReqType() == requestType) {
 
 				logger.debug("Receiving reply from " + reply.getSender()
@@ -465,7 +464,8 @@ public class ServiceProxy extends TOMSender {
          */
 	protected int getReplyQuorum() {
 		if (getViewManager().getStaticConf().isBFT()) {
-			return ((getViewManager().getCurrentViewN() + getViewManager().getCurrentViewF()) / 2) + 1;
+//			return ((getViewManager().getCurrentViewN() + getViewManager().getCurrentViewF()) / 2) + 1;
+			return getViewManager().getCurrentViewF()+1;
 		} else {
 			return ((getViewManager().getCurrentViewN()) / 2) + 1;
 		}

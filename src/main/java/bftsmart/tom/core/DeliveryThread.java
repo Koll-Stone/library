@@ -16,6 +16,7 @@ limitations under the License.
 package bftsmart.tom.core;
 
 import bftsmart.consensus.Decision;
+import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.statemanagement.ApplicationState;
 import bftsmart.tom.MessageContext;
@@ -25,10 +26,13 @@ import bftsmart.tom.core.messages.TOMMessageType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.util.BatchReader;
+import bftsmart.tom.util.TOMUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -92,8 +96,11 @@ public final class DeliveryThread extends Thread {
 		try {
 			decided.put(dec);
 
+
 			// clean the ordered messages from the pending buffer
-			TOMMessage[] requests = extractMessagesFromDecision(dec);
+			TOMMessage[] allrequests = extractMessagesFromDecision(dec);
+			BatchReader batchReader = new BatchReader(null, false);
+			TOMMessage[] requests = batchReader.extractClientRequests(allrequests);
 			tomLayer.clientsManager.requestsOrdered(requests);
 			logger.debug("Consensus " + dec.getConsensusId() + " finished. Decided size=" + decided.size());
 		} catch (Exception e) {
@@ -266,6 +273,7 @@ public final class DeliveryThread extends Thread {
 
 				if (decisions.size() > 0) {
 					TOMMessage[][] requests = new TOMMessage[decisions.size()][];
+					logger.info("requests size is "+requests.length);
 					int[] consensusIds = new int[requests.length];
 					int[] leadersIds = new int[requests.length];
 					int[] regenciesIds = new int[requests.length];
@@ -274,6 +282,7 @@ public final class DeliveryThread extends Thread {
 					int count = 0;
 					for (Decision d : decisions) {
 						requests[count] = extractMessagesFromDecision(d);
+
 						consensusIds[count] = d.getConsensusId();
 						leadersIds[count] = d.getLeader();
 						regenciesIds[count] = d.getRegency();
@@ -282,22 +291,26 @@ public final class DeliveryThread extends Thread {
 								d.getConsensusId(), d.getValue(), d.getDecisionEpoch().proof);
 						cDecs[count] = cDec;
 
+
+
+
 						// cons.firstMessageProposed contains the performance counters
 						if (requests[count][0].equals(d.firstMessageProposed)) {
 							long time = requests[count][0].timestamp;
 							long seed = requests[count][0].seed;
 							int numOfNonces = requests[count][0].numOfNonces;
-							requests[count][0] = d.firstMessageProposed;
+//							requests[count][0] = d.firstMessageProposed;
 							requests[count][0].timestamp = time;
 							requests[count][0].seed = seed;
 							requests[count][0].numOfNonces = numOfNonces;
 						}
 
+
 						count++;
 					}
 
 					Decision lastDecision = decisions.get(decisions.size() - 1);
-
+					
 					deliverMessages(consensusIds, regenciesIds, leadersIds, cDecs, requests);
 
 					// ******* EDUARDO BEGIN ***********//
@@ -342,6 +355,7 @@ public final class DeliveryThread extends Thread {
 
 	private TOMMessage[] extractMessagesFromDecision(Decision dec) {
 		TOMMessage[] requests = dec.getDeserializedValue();
+		TOMMessage tm = requests[0];
 		if (requests == null) {
 			// there are no cached deserialized requests
 			// this may happen if this batch proposal was not verified
@@ -351,7 +365,7 @@ public final class DeliveryThread extends Thread {
 
 			// obtain an array of requests from the decisions obtained
 			BatchReader batchReader = new BatchReader(dec.getValue(), controller.getStaticConf().getUseSignatures() == 1);
-			requests = batchReader.deserialisePropose(controller);
+			requests = batchReader.deserialiseRequestsInPropose(controller);
 		} else {
 			logger.debug("Using cached requests from the propose.");
 		}
@@ -364,7 +378,7 @@ public final class DeliveryThread extends Thread {
 		MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(), request.getReqType(),
 				request.getSession(), request.getSequence(), request.getOperationId(), request.getReplyServer(),
 				request.serializedMessageSignature, System.currentTimeMillis(), 0, 0, regency, -1, -1, null, null,
-				false); // Since the request is unordered,
+				false, null, null, -1); // Since the request is unordered,
 		// there is no consensus info to pass
 
 		msgCtx.readOnly = true;

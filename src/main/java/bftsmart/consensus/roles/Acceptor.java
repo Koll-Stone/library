@@ -184,7 +184,7 @@ public final class Acceptor {
 	 */
 	private void executePropose(Epoch epoch, byte[] value) {
 		int cid = epoch.getConsensus().getId();
-		logger.debug("Executing propose for cId:{}, Epoch Timestamp:{}", cid, epoch.getTimestamp());
+		logger.info("Executing propose for cId:{}, Epoch Timestamp:{}", cid, epoch.getTimestamp());
 
 		long consensusStartTime = System.nanoTime();
 
@@ -203,7 +203,6 @@ public final class Acceptor {
 				tomLayer.setInExec(cid);
 			}
 			epoch.deserializedPropValue = tomLayer.checkProposedValue(value, true);
-
 			if (epoch.deserializedPropValue != null && !epoch.isWriteSent()) {
 				if (epoch.getConsensus().getDecision().firstMessageProposed == null) {
 					epoch.getConsensus().getDecision().firstMessageProposed = epoch.deserializedPropValue[0];

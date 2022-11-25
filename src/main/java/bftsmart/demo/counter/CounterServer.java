@@ -17,6 +17,8 @@ package bftsmart.demo.counter;
 
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.ServiceReplica;
+import bftsmart.tom.server.PDPB.PExecutor;
+import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.defaultservices.DefaultSingleRecoverable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,12 +38,13 @@ import java.io.ObjectOutputStream;
  * @author alysson
  */
 
-public final class CounterServer extends DefaultSingleRecoverable  {
+public final class CounterServer extends POrder {
     
     private int counter = 0;
     private int iterations = 0;
     
     public CounterServer(int id) {
+        setReplicaId(id);
     	new ServiceReplica(id, this, this);
     }
             
@@ -86,36 +89,36 @@ public final class CounterServer extends DefaultSingleRecoverable  {
     }
 
     
-    @SuppressWarnings("unchecked")
-    @Override
-    public void installSnapshot(byte[] state) {
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(state);
-            ObjectInput in = new ObjectInputStream(bis);
-            counter = in.readInt();
-            in.close();
-            bis.close();
-        } catch (IOException e) {
-            System.err.println("[ERROR] Error deserializing state: "
-                    + e.getMessage());
-        }
-    }
+//    @SuppressWarnings("unchecked")
+//    @Override
+//    public void installSnapshot(byte[] state) {
+//        try {
+//            ByteArrayInputStream bis = new ByteArrayInputStream(state);
+//            ObjectInput in = new ObjectInputStream(bis);
+//            counter = in.readInt();
+//            in.close();
+//            bis.close();
+//        } catch (IOException e) {
+//            System.err.println("[ERROR] Error deserializing state: "
+//                    + e.getMessage());
+//        }
+//    }
 
-    @Override
-    public byte[] getSnapshot() {
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutput out = new ObjectOutputStream(bos);
-            out.writeInt(counter);
-            out.flush();
-            bos.flush();
-            out.close();
-            bos.close();
-            return bos.toByteArray();
-        } catch (IOException ioe) {
-            System.err.println("[ERROR] Error serializing state: "
-                    + ioe.getMessage());
-            return "ERROR".getBytes();
-        }
-    }
+//    @Override
+//    public byte[] getSnapshot() {
+//        try {
+//            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+//            ObjectOutput out = new ObjectOutputStream(bos);
+//            out.writeInt(counter);
+//            out.flush();
+//            bos.flush();
+//            out.close();
+//            bos.close();
+//            return bos.toByteArray();
+//        } catch (IOException ioe) {
+//            System.err.println("[ERROR] Error serializing state: "
+//                    + ioe.getMessage());
+//            return "ERROR".getBytes();
+//        }
+//    }
 }

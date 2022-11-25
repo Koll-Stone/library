@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 public class FileRecoverer {
     
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+        private Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	private byte[] ckpHash;
 	private int ckpLastConsensusId;

@@ -150,7 +150,7 @@ public class Synchronizer {
 
 					//TODO: If this is null, then there was no timeout nor STOP messages.
                     //What to do?
-                    byte[] serialized = bb.makeBatch(messages, 0, 0, controller.getStaticConf().getUseSignatures() == 1, controller.PAPnumber);
+                    byte[] serialized = bb.makeBatch(messages, 0, 0, controller.getStaticConf().getUseSignatures() == 1);
                     out.writeBoolean(true);
                     out.writeObject(serialized);
                 } else {
@@ -362,7 +362,7 @@ public class Synchronizer {
                 byte[] temp = (byte[]) ois.readObject();
                 BatchReader batchReader = new BatchReader(temp,
                         controller.getStaticConf().getUseSignatures() == 1);
-                requests = batchReader.deserialiseRequests(controller);
+                requests = batchReader.deserialiseRequests(controller); // ?qiwei?, guess don't need to change this because it is receiving request batch
             } else {
                 
                 requests = new TOMMessage[0];
@@ -481,7 +481,7 @@ public class Synchronizer {
                     //TODO: If this is null, there was no timeout nor STOP messages.
                     //What shall be done then?
                     out.writeBoolean(true);
-                    byte[] serialized = bb.makeBatch(messages, 0, 0, controller.getStaticConf().getUseSignatures() == 1, controller.PAPnumber);
+                    byte[] serialized = bb.makeBatch(messages, 0, 0, controller.getStaticConf().getUseSignatures() == 1);
                     out.writeObject(serialized);
                 } else {
                     out.writeBoolean(false);
@@ -556,42 +556,42 @@ public class Synchronizer {
                     //Do I have info on my last executed consensus?
                     if (cons != null && cons.getDecisionEpoch() != null && cons.getDecisionEpoch().propValue != null) {
                         
-                        out.writeBoolean(true);
-                        out.writeInt(last);
-                        //byte[] decision = exec.getLearner().getDecision();
+                    out.writeBoolean(true);
+                    out.writeInt(last);
+                    //byte[] decision = exec.getLearner().getDecision();
 
-                        byte[] decision = cons.getDecisionEpoch().propValue;
-                        Set<ConsensusMessage> proof = cons.getDecisionEpoch().getProof();
+                    byte[] decision = cons.getDecisionEpoch().propValue;
+                    Set<ConsensusMessage> proof = cons.getDecisionEpoch().getProof();
 
-                        out.writeObject(decision);
-                        out.writeObject(proof);
-                        // TODO: WILL BE NECESSARY TO ADD A PROOF!!!
+                    out.writeObject(decision);
+                    out.writeObject(proof);
+                    // TODO: WILL BE NECESSARY TO ADD A PROOF!!!
 
-                    } else {
-                        out.writeBoolean(false);
+                } else {
+                    out.writeBoolean(false);
+                    
+                    ////// THIS IS TO CATCH A BUG!!!!!
+                    if (last > -1) {
+                        logger.debug("[DEBUG INFO FOR LAST CID #1]");
 
-                        ////// THIS IS TO CATCH A BUG!!!!!
-                        if (last > -1) {
-                            logger.debug("[DEBUG INFO FOR LAST CID #1]");
+                        if (cons == null) {
+                            if (last > -1) logger.debug("No consensus instance for cid " + last);
 
-                            if (cons == null) {
-                                if (last > -1) logger.debug("No consensus instance for cid " + last);
+                        }
+                        else if (cons.getDecisionEpoch() == null) {
+                            logger.debug("No decision epoch for cid " + last);
+                        } else {
+                            logger.debug("epoch for cid: " + last + ": " + cons.getDecisionEpoch().toString());
 
-                            }
-                            else if (cons.getDecisionEpoch() == null) {
-                                logger.debug("No decision epoch for cid " + last);
+                            if (cons.getDecisionEpoch().propValue == null) {
+                                logger.debug("No propose for cid " + last);
                             } else {
-                                logger.debug("epoch for cid: " + last + ": " + cons.getDecisionEpoch().toString());
-
-                                if (cons.getDecisionEpoch().propValue == null) {
-                                    logger.debug("No propose for cid " + last);
-                                } else {
-                                    logger.debug("Propose hash for cid " + last + ": " + Base64.encodeBase64String(tom.computeHash(cons.getDecisionEpoch().propValue)));
-                                }
+                                logger.debug("Propose hash for cid " + last + ": " + Base64.encodeBase64String(tom.computeHash(cons.getDecisionEpoch().propValue)));
                             }
                         }
-
                     }
+
+                }
 
                     if (in > -1) { // content of cid in execution
 
@@ -930,7 +930,7 @@ public class Synchronizer {
             Decision dec = new Decision(-1); // the only purpose of this object is to obtain the batchsize,
                                                 // using code inside of createPropose()
 
-            propose = tom.createPropose(dec);
+            propose = tom.createPropose(dec); // ?qiwei?, todo, called makebatchForPropose, may need change
             batchSize = dec.batchSize;
             
             try { // serialization of the CATCH-UP message

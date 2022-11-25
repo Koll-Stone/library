@@ -18,6 +18,8 @@ package bftsmart.tom;
 import bftsmart.consensus.messages.ConsensusMessage;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
+import bftsmart.tom.core.messages.XACMLType;
+import bftsmart.tom.util.TXid;
 
 import java.io.Serializable;
 import java.util.Random;
@@ -59,6 +61,12 @@ public class MessageContext implements Serializable {
     public boolean readOnly = false;
     
     private byte[] nonces;
+
+    private XACMLType xtype;
+    private int[] executorIds;
+    private int orderInBlock;
+
+    private TXid referenceTxId; // tx it refers
     
     /**
      * Constructor 
@@ -84,7 +92,8 @@ public class MessageContext implements Serializable {
     public MessageContext(int sender, int viewID, TOMMessageType type,
             int session, int sequence, int operationId, int replyServer, byte[] signature,
             long timestamp, int numOfNonces, long seed, int regency, int leader, int consensusId,
-            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp) {
+            Set<ConsensusMessage> proof, TOMMessage firstInBatch, boolean noOp, XACMLType xtype,
+                          int[] execids, int orderinb) {
         
         this.nonces = null;
                
@@ -107,6 +116,10 @@ public class MessageContext implements Serializable {
         this.proof = proof;
         this.firstInBatch = firstInBatch;
         this.noOp = noOp;
+
+        this.xtype = xtype;
+        this.executorIds = execids;
+        this.orderInBlock = orderinb;
     }
 
     /**
@@ -298,4 +311,17 @@ public class MessageContext implements Serializable {
         return ret;
     }
 
+    public XACMLType getXtype() {return xtype;}
+
+    public int getOrderInBlock() {return orderInBlock;}
+
+    public int[] getExecutorIds() {
+        return  executorIds;
+    }
+
+    public TXid getReferenceTXId() {return referenceTxId;}
+
+    public void setReferenceTXId(TXid arg) {
+        referenceTxId = arg;
+    }
 }

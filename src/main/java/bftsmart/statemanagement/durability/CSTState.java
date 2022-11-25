@@ -106,6 +106,7 @@ public class CSTState implements ApplicationState {
      */
     @Override
     public CertifiedDecision getCertifiedDecision(ServerViewController controller) {
+        System.out.println("cststate getcertifieddesicion being called!");
         CommandsInfo ci = getMessageBatch(getLastCID());
         if (ci != null && ci.msgCtx[0].getProof() != null) { // do I have a proof for the consensus?
             
@@ -122,7 +123,7 @@ public class CSTState implements ApplicationState {
             //Serialize the TOMMessages to re-create the proposed value
             BatchBuilder bb = new BatchBuilder(0);
             byte[] value = bb.makeBatch(requests, ci.msgCtx[0].getNumOfNonces(),
-                    ci.msgCtx[0].getSeed(), ci.msgCtx[0].getTimestamp(), controller.getStaticConf().getUseSignatures() == 1, controller.PAPnumber);
+                    ci.msgCtx[0].getSeed(), ci.msgCtx[0].getTimestamp(), controller.getStaticConf().getUseSignatures() == 1);
             
             //Assemble and return the certified decision
             return new CertifiedDecision(pid, getLastCID(), value, proof);

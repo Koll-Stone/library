@@ -60,6 +60,7 @@ public class StandardStateManager extends StateManager {
     public void init(TOMLayer tomLayer, DeliveryThread dt) {
 
         super.init(tomLayer, dt);
+        logger.info("standardstatemanager is initialized");
 
         changeReplica(); // initialize replica from which to ask the complete state
 
@@ -142,6 +143,8 @@ public class StandardStateManager extends StateManager {
             SMMessage smsg = new StandardSMMessage(SVController.getStaticConf().getProcessId(),
                     msg.getCID(), TOMUtil.SM_REPLY, -1, thisState, SVController.getCurrentView(),
                     tomLayer.getSynchronizer().getLCManager().getLastReg(), tomLayer.execManager.getCurrentLeader());
+
+
 
             logger.info("Sending state...");
             tomLayer.getCommunication().send(targets, smsg);

@@ -118,7 +118,8 @@ public class ServerCommunicationSystem extends Thread {
                     messageHandler.processData(sm);
                     count++;
                 } else {                
-                    messageHandler.verifyPending();               
+                    messageHandler.verifyPending();
+//                    logger.debug("<-- get null msg:" + sm);
                 }
             } catch (InterruptedException e) {
                 
@@ -141,9 +142,14 @@ public class ServerCommunicationSystem extends Thread {
         if (sm instanceof TOMMessage) {
             clientsConn.send(targets, (TOMMessage) sm, false);
         } else {
-        	logger.debug("--> sending message from: {} -> {}" + sm.getSender(), targets);
+        	logger.debug("--> sending message from: {} -> {}", sm.getSender(), targets);
             serversConn.send(targets, sm, true);
         }
+    }
+
+    public void sendEcho(int[] targets, SystemMessage sm) {
+        logger.debug("--> sending echo message from: {} -> {}"+sm.getSender(), targets);
+        serversConn.send(targets, sm, true);
     }
 
     public ServersCommunicationLayer getServersConn() {

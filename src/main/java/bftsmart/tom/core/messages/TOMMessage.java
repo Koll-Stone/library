@@ -26,6 +26,7 @@ import java.io.IOException;
 
 import bftsmart.communication.SystemMessage;
 import bftsmart.tom.util.DebugInfo;
+import bftsmart.tom.util.TXid;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -37,6 +38,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	private int viewID; //current sender view
 	private TOMMessageType type; // request type: application or reconfiguration request
 	//******* EDUARDO END **************//
+	private XACMLType xtype;
 
 	private int session; // Sequence number defined by the client
 	// Sequence number defined by the client.
@@ -46,13 +48,26 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 
 	private byte[] content = null; // Content of the message
 
+
+
+
 	//the fields bellow are not serialized!!!
+	// qiwei, new fields
+	private int blockH; // height of the block this TOMMesssage belongs to
+	private int orderInBlock; // tx id this TOMMessage is in the block
+	private int ths; // f or f+1;
+
+	private TXid referenceTxId; // it refers a previous message;
+	private int[] executorIds;
+
+	// qiwei, new fields
+
 	private transient int id; // ID for this message. It should be unique
 
 	public transient long timestamp = 0; // timestamp to be used by the application
 
-        public transient long seed = 0; // seed for the nonces
-        public transient int numOfNonces = 0; // number of nonces
+	public transient long seed = 0; // seed for the nonces
+	public transient int numOfNonces = 0; // number of nonces
         
 	public transient int destination = -1; // message destination
 	public transient boolean signed = false; // is this message signed?
@@ -60,10 +75,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	public transient long receptionTime;//the reception time of this message (nanoseconds)
 	public transient long receptionTimestamp;//the reception timestamp of this message (miliseconds)
 
-        public transient boolean timeout = false;//this message was timed out?
-        
-        public transient boolean recvFromClient = false; // Did the client already sent this message to me, or did it arrived in the batch?
-        public transient boolean isValid = false; // Was this request already validated by the replica?
+	public transient boolean timeout = false;//this message was timed out?
+
+	public transient boolean recvFromClient = false; // Did the client already sent this message to me, or did it arrived in the batch?
+	public transient boolean isValid = false; // Was this request already validated by the replica?
         
 	//the bytes received from the client and its MAC and signature
 	public transient byte[] serializedMessage = null;
@@ -123,6 +138,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		buildId();
 		this.content = content;
 		this.type = type;
+		this.xtype = XACMLType.XACML_nop;
 	}
 
 
@@ -172,6 +188,10 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 
 	public TOMMessageType getReqType() {
 		return type;
+	}
+
+	public XACMLType getXType() {
+		return xtype;
 	}
 
 	/**
@@ -230,6 +250,8 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		out.writeInt(sender);
 		out.writeInt(viewID);
 		out.writeInt(type.toInt());
+		out.writeInt(xtype.toInt());// qiwei, add xtype
+//		System.out.println("look the type, i wrote " + type);
 		out.writeInt(session);
 		out.writeInt(sequence);
 		out.writeInt(operationId);
@@ -247,6 +269,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		sender = in.readInt();
 		viewID = in.readInt();
 		type = TOMMessageType.fromInt(in.readInt());
+		xtype = XACMLType.fromInt(in.readInt());
 		session = in.readInt();
 		sequence = in.readInt();
 		operationId = in.readInt();
@@ -257,6 +280,8 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 			content = new byte[toRead];
 			in.readFully(content);
 		}
+
+
 
 		buildId();
 	}
@@ -376,6 +401,11 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
                     clone.timestamp = this.timestamp;
                     clone.writeSentTime = this.writeSentTime;
                     clone.retry = this.retry;
+					clone.xtype = this.xtype; // qiwei, add xtype
+					clone.ths = this.ths; // qiwei, add executor Ids
+					clone.blockH = this.blockH; // qiwei, add block height;
+					clone.orderInBlock = this.orderInBlock; // qiwei, add tx id;
+					clone.executorIds = this.executorIds; // qiwei, add executor Ids
 
                     return clone;
                         
@@ -391,15 +421,56 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		this.replyServer = replyServer;
 	}
 
-	public void setToUpdate() {
-		 this.type = TOMMessageType.XACML_UPDATE;
+	public void setBlockH(int h) {
+		 blockH = h;
 	}
 
-	public void setToQuery() {
-		 this.type = TOMMessageType.XACML_QUERY;
+	public int getBlockH() {
+		 return blockH;
 	}
 
-	public void setToORDERED() {
-		 this.type = TOMMessageType.ORDERED_REQUEST;
+	public void setOrderInBlock(int id) {
+		 orderInBlock = id;
 	}
+
+	public int getOrderInBlock() {
+		 return orderInBlock;
+	}
+
+	public void setReferenceTxId(TXid arg) {
+		 referenceTxId = arg;
+	}
+
+	public TXid getReferenceTxId() {return referenceTxId;}
+
+	public void setExecutorIds(int[] eIds) {
+		 ths = eIds.length;
+		 executorIds = eIds;
+	}
+
+	public int[] getExecutorIds() {return executorIds;}
+
+	public void setToXACMLNop() {
+		 this.xtype = XACMLType.XACML_nop;
+	}
+
+	public void setToORDERED() {this.type = TOMMessageType.ORDERED_REQUEST;}
+	public void setToXACMLUpdate() {
+		 this.xtype = XACMLType.XACML_UPDATE;
+	}
+
+	public void setToXACMLQuery() {
+		 this.xtype = XACMLType.XACML_QUERY;
+	}
+
+	public void setToXACMLREEXECUTE() { this.xtype = XACMLType.XACML_RE_EXECUTED;}
+
+	public void setToXACMLRESPONDED() {this.xtype = XACMLType.XACML_RESPONDED;}
+
+
+
+
+//	public void setToORDERED() {
+//		this.type = TOMMessageType.ORDERED_REQUEST;
+//	}
 }

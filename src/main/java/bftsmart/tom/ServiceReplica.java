@@ -17,7 +17,9 @@
 package bftsmart.tom;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -33,9 +35,12 @@ import bftsmart.tom.core.ReplyManager;
 import bftsmart.tom.core.TOMLayer;
 import bftsmart.tom.core.messages.TOMMessage;
 import bftsmart.tom.core.messages.TOMMessageType;
+import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.leaderchange.CertifiedDecision;
 import bftsmart.tom.server.BatchExecutable;
 import bftsmart.tom.server.Executable;
+import bftsmart.tom.server.PDPB.EchoMessage;
+import bftsmart.tom.server.PDPB.POrder;
 import bftsmart.tom.server.Recoverable;
 import bftsmart.tom.server.Replier;
 import bftsmart.tom.server.RequestVerifier;
@@ -47,6 +52,7 @@ import bftsmart.tom.util.ShutdownHookThread;
 import bftsmart.tom.util.TOMUtil;
 import java.security.Provider;
 
+import bftsmart.tom.util.TXid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,7 +93,6 @@ public class ServiceReplica {
      * @param recoverer Recoverer
      */
     public ServiceReplica(int id, Executable executor, Recoverable recoverer) {
-
         this(id, "", executor, recoverer, null, new DefaultReplier(), null);
     }
 
@@ -141,9 +146,6 @@ public class ServiceReplica {
         this.init();
         this.recoverer.setReplicaContext(replicaCtx);
         this.replier.setReplicaContext(replicaCtx);
-        System.out.println("################################");
-        System.out.println("service replcia initalized");
-        System.out.println("################################");
     }
 
     // this method initializes the object
@@ -235,7 +237,7 @@ public class ServiceReplica {
         
     /**
      * Cleans the object state and reboots execution. From the perspective of the rest of the system,
-     * this is equivalent to a crash followed by a recovery.
+     * this is equivalent to a rash followed by a recovery.
      */
     public void restart() {        
         Thread t = new Thread() {
@@ -275,38 +277,46 @@ public class ServiceReplica {
         List<TOMMessage> toBatch = new ArrayList<>();
         List<MessageContext> msgCtxts = new ArrayList<>();
         boolean noop = true;
+        int[] targets = this.tomLayer.controller.getCurrentViewAcceptors();
 
         for (TOMMessage[] requestsFromConsensus : requests) {
 
             TOMMessage firstRequest = requestsFromConsensus[0];
             int requestCount = 0;
             noop = true;
+            logger.info("total number of message in service replica is {}", requestsFromConsensus.length);
             for (TOMMessage request : requestsFromConsensus) {
                 
-                logger.debug("Processing TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session " + request.getSession() + " decided in consensus " + consId[consensusCount]);
+                logger.info("Processing TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session " + request.getSession() + " decided in consensus " + consId[consensusCount]);
 
                 if (request.getViewID() == SVController.getCurrentViewId()) {
 
                     if (null == request.getReqType()) {
                         throw new RuntimeException("Should never reach here!");
                     } else switch (request.getReqType()) {
-                        case XACML_QUERY:
-                        case XACML_UPDATE:
+                        case ORDERED_REQUEST:
                             noop = false;
                             numRequests++;
                             MessageContext msgCtx = new MessageContext(request.getSender(), request.getViewID(),
                                     request.getReqType(), request.getSession(), request.getSequence(), request.getOperationId(),
                                     request.getReplyServer(), request.serializedMessageSignature, firstRequest.timestamp,
                                     request.numOfNonces, request.seed, regencies[consensusCount], leaders[consensusCount],
-                                    consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false);
+                                    consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false,
+                                    request.getXType(), request.getExecutorIds(), requestCount);
+                            msgCtx.setReferenceTXId(request.getReferenceTxId());
+                            logger.info("the relationship is request {} <-> [{}, {}]", request.toString(),
+                                    msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+//                            logger.info("this request is " + request.getXType() + ", executors number is " +request.getExecutorIds().length + ": "
+//                                    + Arrays.toString(request.getExecutorIds()));
+
                             if (requestCount + 1 == requestsFromConsensus.length) {
                                 
                                 msgCtx.setLastInBatch();
                             }   request.deliveryTime = System.nanoTime();
                             if (executor instanceof BatchExecutable) {
                                 
-                               logger.debug("Batching request from " + request.getSender());
-                                
+                                logger.debug("Batching request from " + request.getSender());
+
                                 // This is used to deliver the content decided by a consensus instance directly to
                                 // a Recoverable object. It is useful to allow the application to create a log and
                                 // store the proof associated with decisions (which are needed by replicas
@@ -316,10 +326,91 @@ public class ServiceReplica {
                                 // deliver requests and contexts to the executor later
                                 msgCtxts.add(msgCtx);
                                 toBatch.add(request);
+                            } else if (executor instanceof POrder) {
+                                logger.debug("Delivering request from " + request.getSender() + " via POrder");
+
+                                if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
+                                TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
+
+                                switch (msgCtx.getXtype()) {
+                                    case XACML_UPDATE: {
+                                        if (response != null) {
+                                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                                            if (response.reply.getContent()==null) {
+                                                logger.info("but the reply is null");
+                                            } else {
+                                                replier.manageReply(response, msgCtx);
+                                            }
+                                        } else {
+                                            logger.info("XACML_UPDATE executed returns nothing!");
+                                        }
+                                        break;
+                                    }
+                                    case XACML_QUERY: {
+                                        tomLayer.echoManager.setupWait(new TXid(msgCtx.getConsensusId(), msgCtx.getOrderInBlock()),
+                                                msgCtx.getExecutorIds());
+
+                                        if (POrder.contains(msgCtx.getExecutorIds(), id)) {
+                                            // send echo to others
+                                            EchoMessage em = new EchoMessage(this.id, msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+
+                                            // skip sending echo to test TX_REX, begin
+                                            int oracle = ThreadLocalRandom.current().nextInt(0,3);
+                                            if (oracle==0 && id==1) {
+                                                logger.info("avoid sending echo for tx ({}, {})", msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+                                            } else {
+                                                this.tomLayer.getCommunication().send(targets, em);
+                                                // skip sending echo to test TX_REX, end
+                                                response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                                                if (response.reply.getContent()==null) {
+                                                    logger.info("the reply after executing XACML_QUERY is null, strange");
+                                                } else {
+                                                    replier.manageReply(response, msgCtx);
+                                                    logger.info("I am POrder {}, executed an XACML_QUERY, sent the reply", id);
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    }
+                                    case XACML_RE_EXECUTED: {
+                                        if (response != null) {
+                                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                                            if (response.reply.getContent()==null) {
+                                                logger.info("but the reply is null");
+                                            } else {
+                                                logger.info("process re_executed tx, begin");
+                                                // re-construct the response message, begin
+                                                MessageContext mctmp = ((POrder) executor).getpOrderState().getTXContext(msgCtx.getReferenceTXId());
+                                                byte[] commtmp = ((POrder) executor).getpOrderState().getOpContent(msgCtx.getReferenceTXId());
+                                                TOMMessage resptmp = mctmp.recreateTOMMessage(commtmp);
+                                                resptmp.reply = new TOMMessage(id, resptmp.getSession(), resptmp.getSequence(), resptmp.getOperationId(),
+                                                        response.reply.getContent(), SVController.getCurrentViewId(), resptmp.getReqType());
+                                                replier.manageReply(resptmp, mctmp);
+                                                logger.info("process re_executed tx, end");
+                                                // re-construct the response message, end
+
+                                            }
+                                        } else {
+                                            logger.info("response for XACML_RE_EXECUTE is null, strange");
+                                        }
+                                        break;
+                                    }
+                                    case XACML_RESPONDED: {
+                                        break;
+                                    }
+                                }
+
+                                if (msgCtx.getXtype()==XACMLType.XACML_QUERY) {
+                                    // todo, re_execute type also need this
+
+
+                                }
+
+
                             } else if (executor instanceof SingleExecutable) {
                                 
                                 logger.debug("Delivering request from " + request.getSender() + " via SingleExecutable");
-                                
+
                                 // This is used to deliver the content decided by a consensus instance directly to
                                 // a Recoverable object. It is useful to allow the application to create a log and
                                 // store the proof associated with decisions (which are needed by replicas
@@ -329,20 +420,24 @@ public class ServiceReplica {
                                 // This is used to deliver the requests to the application and obtain a reply to deliver
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
-                                
+//                                TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
+
                                 if (response != null) {
-                                    
-                                    logger.debug("sending reply to " + response.getSender());
+                                    response.setToXACMLNop(); // qiwie, add xtype
+//                                    logger.info("sending reply to " + response.getSender());
+                                    if (response.reply.getContent()==null) {
+                                        logger.info("but the reply is null");
+                                    }
                                     replier.manageReply(response, msgCtx);
                                 }
                             } else { //this code should never be executed
                                 throw new UnsupportedOperationException("Non-existent interface");
                             }   break;
-
                         case RECONFIG:
                             SVController.enqueueUpdate(request);
                             break;
                         default: //this code should never be executed
+                            logger.debug("the type is "+request.getReqType());
                             throw new RuntimeException("Should never reach here!");
                     }
                 } else if (request.getViewID() < SVController.getCurrentViewId()) { 
@@ -382,7 +477,8 @@ public class ServiceReplica {
                             m.getReqType(), m.getSession(), m.getSequence(), m.getOperationId(),
                             m.getReplyServer(), m.serializedMessageSignature, firstRequest.timestamp,
                             m.numOfNonces, m.seed, regencies[consensusCount], leaders[consensusCount],
-                            consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, true);
+                            consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest,
+                                true, m.getXType(), m.getExecutorIds(), line);
                         msgCtx[line].setLastInBatch();
                         
                         line++;
@@ -429,6 +525,7 @@ public class ServiceReplica {
                         repMan.send(reply);
                     } else {
                         logger.debug("Sending reply to " + reply.getSender() + " with sequence number " + reply.getSequence() + " and operation ID " + reply.getOperationId());
+//                        reply.setToXACMLNop(); // qiwei, add xtype
                         replier.manageReply(reply, null);
                         //cs.send(new int[]{request.getSender()}, request.reply);
                     }
@@ -515,4 +612,6 @@ public class ServiceReplica {
     public int getId() {
         return id;
     }
+
+    public TOMLayer getTomLayer() {return tomLayer;}
 }

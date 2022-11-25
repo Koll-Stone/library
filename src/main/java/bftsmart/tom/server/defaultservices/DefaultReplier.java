@@ -36,8 +36,7 @@ public class DefaultReplier implements Replier{
     
     @Override
     public void manageReply(TOMMessage request, MessageContext msgCtx) {
-        
-        
+
         while (rc == null) {
             
             try {
@@ -52,8 +51,7 @@ public class DefaultReplier implements Replier{
                 LoggerFactory.getLogger(this.getClass()).error("Interruption while waiting/aquiring condition", ex);
             }
         }
-
-        request.reply.setToORDERED();
+        
         rc.getServerCommunicationSystem().send(new int[]{request.getSender()}, request.reply);
         
     }
