@@ -17,7 +17,6 @@
 package bftsmart.tom;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Condition;
@@ -52,7 +51,7 @@ import bftsmart.tom.util.ShutdownHookThread;
 import bftsmart.tom.util.TOMUtil;
 import java.security.Provider;
 
-import bftsmart.tom.util.TXid;
+import bftsmart.tom.util.IdPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,7 +65,7 @@ import org.slf4j.LoggerFactory;
  * need to organize the replies in batches.
  */
 public class ServiceReplica {
-    
+
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
     // replica ID
@@ -107,19 +106,19 @@ public class ServiceReplica {
     public ServiceReplica(int id, Executable executor, Recoverable recoverer, RequestVerifier verifier) {
         this(id, "", executor, recoverer, verifier, new DefaultReplier(), null);
     }
-    
+
     /**
      * Constructor
-     * 
+     *
      * @see bellow
      */
     public ServiceReplica(int id, Executable executor, Recoverable recoverer, RequestVerifier verifier, Replier replier) {
         this(id, "", executor, recoverer, verifier, replier, null);
     }
-    
+
     /**
      * Constructor
-     * 
+     *
      * @see bellow
      */
     public ServiceReplica(int id, Executable executor, Recoverable recoverer, RequestVerifier verifier, Replier replier, KeyLoader loader, Provider provider) {
@@ -162,7 +161,7 @@ public class ServiceReplica {
             initTOMLayer(); // initiaze the TOM layer
         } else {
             logger.info("Not in current view: " + this.SVController.getCurrentView());
-            
+
             //Not in the initial view, just waiting for the view where the join has been executed
             logger.info("Waiting for the TTP: " + this.SVController.getCurrentView());
             waitTTPJoinMsgLock.lock();
@@ -171,7 +170,7 @@ public class ServiceReplica {
             } finally {
                 waitTTPJoinMsgLock.unlock();
             }
-            
+
         }
         initReplica();
     }
@@ -215,36 +214,36 @@ public class ServiceReplica {
             }
         }
     }
-        
+
     /**
      * Stops the service execution at a replica. It will shutdown all threads, stop the requests' timer, and drop all enqueued requests,
      * thus letting the ServiceReplica object be garbage-collected. From the perspective of the rest of the system, this is equivalent
      * to a simple crash fault.
      */
-    public void kill() {        
-        
+    public void kill() {
+
         Thread t = new Thread() {
 
             @Override
             public void run() {
-                if (tomLayer != null) {   
+                if (tomLayer != null) {
                     tomLayer.shutdown();
-                }     
+                }
             }
         };
         t.start();
     }
-        
+
     /**
      * Cleans the object state and reboots execution. From the perspective of the rest of the system,
      * this is equivalent to a rash followed by a recovery.
      */
-    public void restart() {        
+    public void restart() {
         Thread t = new Thread() {
 
             @Override
             public void run() {
-                if (tomLayer != null && cs != null) {   
+                if (tomLayer != null && cs != null) {
                     tomLayer.shutdown();
 
                     try {
@@ -264,8 +263,8 @@ public class ServiceReplica {
                     init();
                     recoverer.setReplicaContext(replicaCtx);
                     replier.setReplicaContext(replicaCtx);
-                
-                }     
+
+                }
             }
         };
         t.start();
@@ -284,15 +283,20 @@ public class ServiceReplica {
             TOMMessage firstRequest = requestsFromConsensus[0];
             int requestCount = 0;
             noop = true;
-            logger.info("total number of message in service replica is {}", requestsFromConsensus.length);
+            logger.debug("deliver consensus {}, total number of message is {}", consId[consensusCount], requestsFromConsensus.length);
+
+            List<byte[]> batchedQueryCommands = new ArrayList<byte[]>();
+            List<MessageContext> cachedQueryMsgCtx = new ArrayList<MessageContext>();
+            List<MessageContext> cachedRexMsgCtx = new ArrayList<MessageContext>();
+            List<MessageContext> cachedRespMsgCtx = new ArrayList<MessageContext>();
             for (TOMMessage request : requestsFromConsensus) {
-                
-                logger.info("Processing TOMMessage from client " + request.getSender() + " with sequence number " + request.getSequence() + " for session " + request.getSession() + " decided in consensus " + consId[consensusCount]);
+
+//                logger.debug("Processing TOMMessage decided in consensus " + consId[consensusCount]);
 
                 if (request.getViewID() == SVController.getCurrentViewId()) {
 
                     if (null == request.getReqType()) {
-                        throw new RuntimeException("Should never reach here!");
+                        throw new RuntimeException("Should never reach here, request has no xacml type");
                     } else switch (request.getReqType()) {
                         case ORDERED_REQUEST:
                             noop = false;
@@ -304,17 +308,16 @@ public class ServiceReplica {
                                     consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest, false,
                                     request.getXType(), request.getExecutorIds(), requestCount);
                             msgCtx.setReferenceTXId(request.getReferenceTxId());
-                            logger.info("the relationship is request {} <-> [{}, {}]", request.toString(),
-                                    msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
-//                            logger.info("this request is " + request.getXType() + ", executors number is " +request.getExecutorIds().length + ": "
-//                                    + Arrays.toString(request.getExecutorIds()));
+                            if (request.getXType()==XACMLType.XACML_UPDATE || request.getXType()==XACMLType.XACML_QUERY)
+                                logger.debug("the relationship is request {} <-> [{}, {}]", request.toString(),
+                                        msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
 
                             if (requestCount + 1 == requestsFromConsensus.length) {
-                                
+
                                 msgCtx.setLastInBatch();
                             }   request.deliveryTime = System.nanoTime();
                             if (executor instanceof BatchExecutable) {
-                                
+
                                 logger.debug("Batching request from " + request.getSender());
 
                                 // This is used to deliver the content decided by a consensus instance directly to
@@ -322,93 +325,45 @@ public class ServiceReplica {
                                 // store the proof associated with decisions (which are needed by replicas
                                 // that are asking for a state transfer).
                                 if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
-                                
+
                                 // deliver requests and contexts to the executor later
                                 msgCtxts.add(msgCtx);
                                 toBatch.add(request);
                             } else if (executor instanceof POrder) {
-                                logger.debug("Delivering request from " + request.getSender() + " via POrder");
-
                                 if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
-                                TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
 
                                 switch (msgCtx.getXtype()) {
                                     case XACML_UPDATE: {
+                                        TOMMessage response = ((POrder) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
+
                                         if (response != null) {
                                             response.setToXACMLNop(); // qiwei, add xtype before replying clients
                                             if (response.reply.getContent()==null) {
-                                                logger.info("but the reply is null");
+                                                logger.debug("but the reply is null");
                                             } else {
                                                 replier.manageReply(response, msgCtx);
                                             }
                                         } else {
-                                            logger.info("XACML_UPDATE executed returns nothing!");
+                                            logger.debug("XACML_UPDATE executed returns nothing!");
                                         }
                                         break;
                                     }
                                     case XACML_QUERY: {
-                                        tomLayer.echoManager.setupWait(new TXid(msgCtx.getConsensusId(), msgCtx.getOrderInBlock()),
-                                                msgCtx.getExecutorIds());
-
-                                        if (POrder.contains(msgCtx.getExecutorIds(), id)) {
-                                            // send echo to others
-                                            EchoMessage em = new EchoMessage(this.id, msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
-
-                                            // skip sending echo to test TX_REX, begin
-                                            int oracle = ThreadLocalRandom.current().nextInt(0,3);
-                                            if (oracle==0 && id==1) {
-                                                logger.info("avoid sending echo for tx ({}, {})", msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
-                                            } else {
-                                                this.tomLayer.getCommunication().send(targets, em);
-                                                // skip sending echo to test TX_REX, end
-                                                response.setToXACMLNop(); // qiwei, add xtype before replying clients
-                                                if (response.reply.getContent()==null) {
-                                                    logger.info("the reply after executing XACML_QUERY is null, strange");
-                                                } else {
-                                                    replier.manageReply(response, msgCtx);
-                                                    logger.info("I am POrder {}, executed an XACML_QUERY, sent the reply", id);
-                                                }
-                                            }
-                                        }
+                                        batchedQueryCommands.add(request.getContent());
+                                        cachedQueryMsgCtx.add(msgCtx);
                                         break;
                                     }
                                     case XACML_RE_EXECUTED: {
-                                        if (response != null) {
-                                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
-                                            if (response.reply.getContent()==null) {
-                                                logger.info("but the reply is null");
-                                            } else {
-                                                logger.info("process re_executed tx, begin");
-                                                // re-construct the response message, begin
-                                                MessageContext mctmp = ((POrder) executor).getpOrderState().getTXContext(msgCtx.getReferenceTXId());
-                                                byte[] commtmp = ((POrder) executor).getpOrderState().getOpContent(msgCtx.getReferenceTXId());
-                                                TOMMessage resptmp = mctmp.recreateTOMMessage(commtmp);
-                                                resptmp.reply = new TOMMessage(id, resptmp.getSession(), resptmp.getSequence(), resptmp.getOperationId(),
-                                                        response.reply.getContent(), SVController.getCurrentViewId(), resptmp.getReqType());
-                                                replier.manageReply(resptmp, mctmp);
-                                                logger.info("process re_executed tx, end");
-                                                // re-construct the response message, end
-
-                                            }
-                                        } else {
-                                            logger.info("response for XACML_RE_EXECUTE is null, strange");
-                                        }
+                                        cachedRexMsgCtx.add(msgCtx);
                                         break;
                                     }
                                     case XACML_RESPONDED: {
+                                        cachedRespMsgCtx.add(msgCtx);
                                         break;
                                     }
                                 }
-
-                                if (msgCtx.getXtype()==XACMLType.XACML_QUERY) {
-                                    // todo, re_execute type also need this
-
-
-                                }
-
-
                             } else if (executor instanceof SingleExecutable) {
-                                
+
                                 logger.debug("Delivering request from " + request.getSender() + " via SingleExecutable");
 
                                 // This is used to deliver the content decided by a consensus instance directly to
@@ -416,7 +371,7 @@ public class ServiceReplica {
                                 // store the proof associated with decisions (which are needed by replicas
                                 // that are asking for a state transfer).
                                 if (this.recoverer != null) this.recoverer.Op(msgCtx.getConsensusId(), request.getContent(), msgCtx);
-                                
+
                                 // This is used to deliver the requests to the application and obtain a reply to deliver
                                 //to the clients. The raw decision is passed to the application in the line above.
                                 TOMMessage response = ((SingleExecutable) executor).executeOrdered(id, SVController.getCurrentViewId(), request.getContent(), msgCtx);
@@ -426,7 +381,7 @@ public class ServiceReplica {
                                     response.setToXACMLNop(); // qiwie, add xtype
 //                                    logger.info("sending reply to " + response.getSender());
                                     if (response.reply.getContent()==null) {
-                                        logger.info("but the reply is null");
+                                        logger.debug("but the reply is null");
                                     }
                                     replier.manageReply(response, msgCtx);
                                 }
@@ -440,22 +395,143 @@ public class ServiceReplica {
                             logger.debug("the type is "+request.getReqType());
                             throw new RuntimeException("Should never reach here!");
                     }
-                } else if (request.getViewID() < SVController.getCurrentViewId()) { 
+                } else if (request.getViewID() < SVController.getCurrentViewId()) {
                     // message sender had an old view, resend the message to
                     // him (but only if it came from consensus an not state transfer)
-                    
+
                     tomLayer.getCommunication().send(new int[]{request.getSender()}, new TOMMessage(SVController.getStaticConf().getProcessId(),
                             request.getSession(), request.getSequence(), request.getOperationId(), TOMUtil.getBytes(SVController.getCurrentView()), SVController.getCurrentViewId(), request.getReqType()));
                 }
                 requestCount++;
             }
 
+
+
+
+            byte[][] replies = null;
+
+
+            // deal with response(rex) first
+            if (cachedRexMsgCtx.size()>0) {
+                for (int i=0; i<cachedRexMsgCtx.size(); i++) {
+                    replies = ((POrder) executor).executeRexInParallel(cachedRexMsgCtx.get(i), consId[consensusCount]);
+//                    if (replies==null) logger.info("reply for rex length is null");
+                    if (POrder.contains(cachedRexMsgCtx.get(i).getExecutorIds(), id)) {
+                        // send reply to clients
+                        IdPair batchid = cachedRexMsgCtx.get(i).getReferenceTXId();
+                        int vr=0;
+//                        logger.debug("reply to client for all queries in re-executed batch {}", batchid.toString());
+                        for (IdPair tid: tomLayer.echoManager.mapToTX(batchid)) {
+
+                            MessageContext mctmp = tomLayer.pdpbstate.getTXContext(tid);
+                            byte[] commtmp = tomLayer.pdpbstate.getOpContent(tid);
+                            TOMMessage response = mctmp.recreateTOMMessage(commtmp);
+                            response.reply = new TOMMessage(id, response.getSession(), response.getSequence(), response.getOperationId(),
+                                    replies[vr], SVController.getCurrentViewId(), response.getReqType());
+                            response.setToXACMLNop();
+                            replier.manageReply(response, mctmp);
+                            vr++;
+                            logger.debug("reply to client for query {} in re-executed batch", tid.toString());
+                        }
+                    }
+                }
+            } else {
+                logger.debug("there is norex in this block");
+            }
+
+
+
+            for (MessageContext msgctx: cachedRespMsgCtx) {
+                ((POrder) executor).executeOrdered(null, msgctx);
+            }
+
+
+            // then do queries
+            if (cachedQueryMsgCtx.size()>0) {
+
+                this.tomLayer.echoManager.setBlockUpdateQueryNum(cachedQueryMsgCtx.get(0).getConsensusId(), cachedQueryMsgCtx.get(0).getOrderInBlock(),
+                        cachedQueryMsgCtx.size());
+                this.tomLayer.echoManager.recordBlockQueryTxList(cachedQueryMsgCtx.get(0).getConsensusId());
+                this.tomLayer.echoManager.recordBlockQueryBatchList(cachedQueryMsgCtx.get(0).getConsensusId());
+
+                // set up echomanger to wait for reply
+                for (int i=0; i<cachedQueryMsgCtx.size(); i++) {
+                    if ((i+1)%tomLayer.echoManager.getRespCompactSize()==0 || (i+1)==cachedQueryMsgCtx.size()) {
+                        MessageContext msgCtx = cachedQueryMsgCtx.get(i);
+                        tomLayer.echoManager.setupWait(new IdPair(msgCtx.getConsensusId(), i/tomLayer.echoManager.getRespCompactSize()),
+                                msgCtx.getExecutorIds());
+                    }
+                }
+
+                // now execute the query in parallel
+                replies = ((POrder) executor).executeQueryInParallel(batchedQueryCommands.toArray(new byte[0][]),
+                        cachedQueryMsgCtx.toArray(new MessageContext[0]), consId[consensusCount]);
+                // convert byte[] to TOMMessage then send the reply
+                byte[][] replyToCompress = new byte[tomLayer.echoManager.getRespCompactSize()][];
+                int oracle = ThreadLocalRandom.current().nextInt(0,10); // control sending or not sending reply/echo, for test
+                boolean destine = oracle<5 && id==0;
+
+                for (int i=0; i<replies.length; i++) {
+                    MessageContext msgCtx = cachedQueryMsgCtx.get(i);
+                    int cind = i%tomLayer.echoManager.getRespCompactSize();
+                    replyToCompress[cind] = replies[i];
+
+
+                    if (POrder.contains(msgCtx.getExecutorIds(), id)) {
+                        IdPair tid = new IdPair(msgCtx.getConsensusId(), msgCtx.getOrderInBlock());
+
+
+                        // send response to clients
+                        if (destine) {
+                            // avoid sending
+//                            logger.debug("avoid sending reply for tx {}", tid.toString());
+                        } else {
+                            // send as usual
+                            TOMMessage response = cachedQueryMsgCtx.get(i).recreateTOMMessage(batchedQueryCommands.get(i));
+                            response.reply = new TOMMessage(this.id, response.getSession(), response.getSequence(), response.getOperationId(),
+                                    replies[i], SVController.getCurrentViewId(), response.getReqType());
+                            response.setToXACMLNop(); // qiwei, add xtype before replying clients
+                            replier.manageReply(response, msgCtx);
+//                            logger.debug("executed an XACML_QUERY, sent the reply");
+                        }
+
+
+                        // send echo to other servers
+                        if ((i+1)%tomLayer.echoManager.getRespCompactSize()==0 || (i+1)==cachedQueryMsgCtx.size()) {
+
+                            IdPair bid = tomLayer.echoManager.mapToBatch(tid);
+//                            logger.info("bid=({}, {}), replyToCompress is:", bid.getX(), bid.getY());
+//                            for (int j=0; j<replies.length; j++) {
+//                                logger.info("bid=({}, {}), replyToCompress: {}", bid.getX(), bid.getY(), new String(replyToCompress[j]));
+//                            }
+                            EchoMessage em = new EchoMessage(this.id, bid.getX(), bid.getY(), replyToCompress);
+//                            this.tomLayer.getCommunication().send(targets, em);
+
+                            if (destine) {
+                                logger.debug("avoid sending echo for batch {}", bid.toString());
+                            } else {
+                                this.tomLayer.getCommunication().send(targets, em);
+                                logger.debug("sent echo for batch ({}, {})", bid.getX(), bid.getY());
+                            }
+                        }
+
+
+                    }
+                }
+            }
+
+
+
+            // finally, do checkpoint (if necessary)
+            ((POrder) executor).doCheckPoint(consId[consensusCount]);
+
+
             // This happens when a consensus finishes but there are no requests to deliver
             // to the application. This can happen if a reconfiguration is issued and is the only
             // operation contained in the batch. The recoverer must be notified about this,
             // hence the invocation of "noop"
             if (noop && this.recoverer != null) {
-                
+
                 logger.debug("Delivering a no-op to the recoverer");
 
                 logger.info("A consensus instance finished, but there were no commands to deliver to the application.");
@@ -480,21 +556,21 @@ public class ServiceReplica {
                             consId[consensusCount], cDecs[consensusCount].getConsMessages(), firstRequest,
                                 true, m.getXType(), m.getExecutorIds(), line);
                         msgCtx[line].setLastInBatch();
-                        
+
                         line++;
                     }
                 }
 
                 this.recoverer.noOp(consId[consensusCount], batch, msgCtx);
-                
+
                 //MessageContext msgCtx = new MessageContext(-1, -1, null, -1, -1, -1, -1, null, // Since it is a noop, there is no need to pass info about the client...
                 //        -1, 0, 0, regencies[consensusCount], leaders[consensusCount], consId[consensusCount], cDecs[consensusCount].getConsMessages(), //... but there is still need to pass info about the consensus
                 //        null, true); // there is no command that is the first of the batch, since it is a noop
                 //msgCtx.setLastInBatch();
-                
+
                 //this.recoverer.noOp(msgCtx.getConsensusId(), msgCtx);
             }
-            
+
             consensusCount++;
         }
 
@@ -511,13 +587,13 @@ public class ServiceReplica {
 
             MessageContext[] msgContexts = new MessageContext[msgCtxts.size()];
             msgContexts = msgCtxts.toArray(msgContexts);
-            
+
             //Deliver the batch and wait for replies
             TOMMessage[] replies = ((BatchExecutable) executor).executeBatch(id, SVController.getCurrentViewId(), batch, msgContexts);
 
             //Send the replies back to the client
             if (replies != null) {
-                
+
                 for (TOMMessage reply : replies) {
 
                     if (SVController.getStaticConf().getNumRepliers() > 0) {
@@ -593,15 +669,15 @@ public class ServiceReplica {
     public final ReplicaContext getReplicaContext() {
         return replicaCtx;
     }
-    
-    
+
+
     /**
      * Obtains the current replica communication system.
-     * 
+     *
      * @return The replica's communication system
      */
     public ServerCommunicationSystem getServerCommunicationSystem() {
-        
+
         return cs;
     }
 
@@ -614,4 +690,6 @@ public class ServiceReplica {
     }
 
     public TOMLayer getTomLayer() {return tomLayer;}
+
+
 }

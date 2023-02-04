@@ -26,10 +26,12 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import bftsmart.reconfiguration.util.Configuration;
 import java.security.Security;
+import java.util.List;
 import java.util.Random;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -262,4 +264,64 @@ public class TOMUtil {
         return new PBEKeySpec(password, salt, PBE_ITERATIONS, HASH_BYTE_SIZE);
         
     }
+
+    public static byte[] merkle_tree(byte[][] txList) {
+        List<byte[]> tempTxList = new ArrayList<byte[]>();
+
+        for (int i = 0; i < txList.length; i++) {
+            if (txList[i]!=null)
+                tempTxList.add(txList[i]);
+        }
+
+        List<byte[]> newTxList = getNewTxList(tempTxList);
+//        System.out.println("newTxList length is " + newTxList.size());
+        while (newTxList.size() != 1) {
+            newTxList = getNewTxList(newTxList);
+//            System.out.println("newTxList length is " + newTxList.size());
+        }
+        return newTxList.get(0);
+    }
+
+    private static List<byte[]> getNewTxList(List<byte[]> tempTxList) {
+
+        List<byte[]> newTxList = new ArrayList<byte[]>();
+        int index = 0;
+//        logger.info("tempTxList length is {}", tempTxList.size());
+        while (index < tempTxList.size()) {
+            // left
+            byte[] left = tempTxList.get(index);
+            index++;
+
+            // right
+            byte[] right = null;
+            if (index != tempTxList.size()) {
+                right = tempTxList.get(index);
+            }
+
+            // sha2 hex value
+            byte [] tmp;
+            if (right==null) {
+                tmp = left;
+            } else {
+                tmp = new byte[left.length+right.length];
+                System.arraycopy(left, 0, tmp, 0, left.length);
+                System.arraycopy(right, 0, tmp, left.length, right.length);
+            }
+            byte[] sha2HexValue = null;
+            try {
+//                logger.info("tmp is {}", tmp);
+                sha2HexValue = TOMUtil.getHashEngine().digest(tmp);
+//                logger.info("sha value is ", sha2HexValue);
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            }
+            newTxList.add(sha2HexValue);
+            index++;
+//            logger.info("index is {}", index);
+        }
+
+        return newTxList;
+    }
+
+
 }

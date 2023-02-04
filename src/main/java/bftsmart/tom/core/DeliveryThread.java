@@ -273,7 +273,7 @@ public final class DeliveryThread extends Thread {
 
 				if (decisions.size() > 0) {
 					TOMMessage[][] requests = new TOMMessage[decisions.size()][];
-					logger.info("requests size is "+requests.length);
+//					logger.info("requests size is "+requests.length);
 					int[] consensusIds = new int[requests.length];
 					int[] leadersIds = new int[requests.length];
 					int[] regenciesIds = new int[requests.length];
@@ -387,6 +387,9 @@ public final class DeliveryThread extends Thread {
 
 	private void deliverMessages(int[] consId, int[] regencies, int[] leaders, CertifiedDecision[] cDecs,
 								 TOMMessage[][] requests) {
+		String res="";
+		for(int i: consId) res += i+", ";
+//		logger.debug("deliver consensus {}", res);
 		receiver.receiveMessages(consId, regencies, leaders, cDecs, requests);
 	}
 

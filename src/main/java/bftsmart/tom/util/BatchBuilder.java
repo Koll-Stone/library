@@ -19,11 +19,9 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 import bftsmart.clientsmanagement.RequestList;
-import bftsmart.reconfiguration.ServerViewController;
 import bftsmart.tom.MessageContext;
 import bftsmart.tom.core.messages.TOMMessage;
 
-import bftsmart.tom.core.messages.XACMLType;
 import bftsmart.tom.server.PDPB.PDPBState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,8 +162,8 @@ public final class BatchBuilder {
 
 	}
 
-	public byte[] makeBatchForPropose(List<TOMMessage> msgs, List<TXid> unresplist, List<TXid> resplist,
-									  int numNounces, long timestamp, boolean useSignatures, int ths) {
+	public byte[] makeBatchForPropose(List<TOMMessage> msgs, List<IdPair> unresplist, List<IdPair> resplist,
+                                      int numNounces, long timestamp, boolean useSignatures, int ths, int cid) {
 		// qiwei, separate XACML_UPDATE and XACML_QUERU
 		RequestList updatemsgs = new RequestList();
 		RequestList querymsgs = new RequestList();
@@ -237,11 +235,14 @@ public final class BatchBuilder {
 
 		int[][] backupexecutors = null;
 		if (rexnum>0) {
-			backupexecutors = pdpbState.LBForReExecute(unresplist.toArray(new TXid[0]), pdpbState.getF());
+			backupexecutors = pdpbState.LBForReExecute(unresplist.toArray(new IdPair[0]), pdpbState.getF(), cid);
 		}
 		int[][] happyexecutors = null;
 		if (querynum>0) {
-			happyexecutors = pdpbState.LBForQuery(querynum, pdpbState.getF()+1);
+			happyexecutors = pdpbState.LBForQuery(querynum, pdpbState.getF()+1, cid);
+//			for (int k=0; k<querynum; k++) {
+//				logger.info("happyexecutors[{}] is {}", k, happyexecutors[k]);
+//			}
 		}
 
 		return createBatchForPropose(timestamp, numNounces, rnd.nextLong(), updatenum, querynum, rexnum, respnum, totalMessageSize,
@@ -249,13 +250,13 @@ public final class BatchBuilder {
 	}
 
 	private byte[] createBatchForPropose(long timestamp, int numberOfNonces, long seed, int numberOfUpdates, int numberofQuerys,
-										 int numberOfReexecuted, int numberOfResponded, int totalMessagesSize, boolean useSignatures,
-										 byte[][] messages, List<TXid> unresplist, int[][] happyExecutors, int[][] backupExecutors,
-										 List<TXid> resplist, byte[][] signatures) {
+                                         int numberOfReexecuted, int numberOfResponded, int totalMessagesSize, boolean useSignatures,
+                                         byte[][] messages, List<IdPair> unresplist, int[][] happyExecutors, int[][] backupExecutors,
+                                         List<IdPair> resplist, byte[][] signatures) {
 		int ths = pdpbState.getF();
 		int sigsSize = 0;
 		int numberOfMessages = numberOfUpdates + numberofQuerys;
-		logger.info("the created block will have {} updates, {} querys, {} re-executions and {} responses",
+		logger.debug("the created block will have {} updates, {} querys, {} re-executions and {} responses",
 				numberOfUpdates, numberofQuerys, numberOfReexecuted, numberOfResponded);
 
 		if (useSignatures) {
@@ -318,7 +319,7 @@ public final class BatchBuilder {
 		proposalBuffer.putInt(numberOfReexecuted);
 		if (numberOfReexecuted>0) {
 			int i = 0;
-			for (TXid tid: unresplist) {
+			for (IdPair tid: unresplist) {
 				proposalBuffer.putInt(tid.getX());
 				proposalBuffer.putInt(tid.getY());
 				proposalBuffer.putInt(ths);

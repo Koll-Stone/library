@@ -26,7 +26,7 @@ import java.io.IOException;
 
 import bftsmart.communication.SystemMessage;
 import bftsmart.tom.util.DebugInfo;
-import bftsmart.tom.util.TXid;
+import bftsmart.tom.util.IdPair;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -57,7 +57,7 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 	private int orderInBlock; // tx id this TOMMessage is in the block
 	private int ths; // f or f+1;
 
-	private TXid referenceTxId; // it refers a previous message;
+	private IdPair referenceTxId; // it refers a previous message;
 	private int[] executorIds;
 
 	// qiwei, new fields
@@ -437,11 +437,11 @@ public class TOMMessage extends SystemMessage implements Externalizable, Compara
 		 return orderInBlock;
 	}
 
-	public void setReferenceTxId(TXid arg) {
+	public void setReferenceTxId(IdPair arg) {
 		 referenceTxId = arg;
 	}
 
-	public TXid getReferenceTxId() {return referenceTxId;}
+	public IdPair getReferenceTxId() {return referenceTxId;}
 
 	public void setExecutorIds(int[] eIds) {
 		 ths = eIds.length;

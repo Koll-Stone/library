@@ -400,7 +400,6 @@ public class ServiceProxy extends TOMSender {
 						canReceiveLock.unlock();
 						return;
 					}
-
 				}else{
 					if (replies[pos] == null) {
 						receivedReplies++;
@@ -408,9 +407,7 @@ public class ServiceProxy extends TOMSender {
 					replies[pos] = reply;
 
 					// Compare the reply just received, to the others
-					
 					for (int i = 0; i < replies.length; i++) {
-
 						if ((i != pos || getViewManager().getCurrentViewN() == 1) && replies[i] != null
 								&& (comparator.compare(replies[i].getContent(), reply.getContent()) == 0)) {
 							sameContent++;

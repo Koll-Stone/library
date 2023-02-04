@@ -72,6 +72,8 @@ public class TOMConfiguration extends Configuration {
     private String keyStoreFile;
     private String [] enabledCiphers;
 
+    private int respCompactSize;
+
 
     /** Creates a new instance of TOMConfiguration */
     public TOMConfiguration(int processId, KeyLoader loader) {
@@ -426,10 +428,23 @@ public class TOMConfiguration extends Configuration {
 			}
 
             s = (String) configs.remove("system.client.invokeOrderedTimeout");
+//            System.out.println("client invoke timeout is " + Integer.parseInt(s));
             if (s == null) {
                 clientInvokeOrderedTimeout = 40;
             } else {
                 clientInvokeOrderedTimeout = Integer.parseInt(s);
+            }
+
+//            if (configs.containsKey("system.pdpb.responsecompact")) {
+//                logger.info("@@@@@@@@@@@@@@@@@@@yes");
+//            } else {
+//                logger.info("@@@@@@@@@@@@@@@@@@@no");
+//            }
+            s = (String) configs.remove("system.pdpb.responsecompact");
+            if (s == null) {
+                respCompactSize = 2;
+            } else {
+                respCompactSize = Integer.parseInt(s);
             }
 
         } catch (Exception e) {
@@ -641,4 +656,5 @@ public class TOMConfiguration extends Configuration {
 		return enabledCiphers;
 	}
 
+    public int getRespCompactSize() {return respCompactSize;}
 }

@@ -1,0 +1,1 @@
+gnome-terminal -- /usr/lib/jvm/java-1.8.0-openjdk-amd64/bin/java -Djava.security.properties="./config/java.security" -Dlogback.configurationFile="./config/logback.xml" -cp "build/install/library/lib/*" bftsmart.demo.counter.CounterClient 1001 2 10000

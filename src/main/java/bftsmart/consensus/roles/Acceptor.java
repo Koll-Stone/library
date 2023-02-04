@@ -184,7 +184,7 @@ public final class Acceptor {
 	 */
 	private void executePropose(Epoch epoch, byte[] value) {
 		int cid = epoch.getConsensus().getId();
-		logger.info("Executing propose for cId:{}, Epoch Timestamp:{}", cid, epoch.getTimestamp());
+		logger.debug("Executing propose for cId:{}, Epoch Timestamp:{}", cid, epoch.getTimestamp());
 
 		long consensusStartTime = System.nanoTime();
 
@@ -250,6 +250,7 @@ public final class Acceptor {
 
 			} else if (epoch.deserializedPropValue == null 
 					&& !tomLayer.isChangingLeader()) { // force a leader change
+				logger.debug("epoch {} got an empty propvalue", epoch.getConsensus().getId());
 				tomLayer.getSynchronizer().triggerTimeout(new LinkedList<>());
 			}
 		}

@@ -429,7 +429,7 @@ public class ClientsManager {
                 clientData.getLastMessageDelivered() >= request.getSequence()) {
             
             clientData.clientLock.unlock();
-            logger.warn("Detected a leader replay attack, rejecting request");
+            logger.info("Detected a leader replay attack, rejecting request");
             return false;
         }
 
@@ -517,7 +517,7 @@ public class ClientsManager {
                 accounted = true;
             } else {
                 
-                logger.warn("Message from client {} is invalid", clientData.getClientId());
+                logger.debug("Message from client {} is invalid", clientData.getClientId());
             }
         } else {
             //I will not put this message on the pending requests list
@@ -543,7 +543,7 @@ public class ClientsManager {
                 accounted = true;
             } else {
                 
-                logger.warn("Message from client {} is too forward", clientData.getClientId());
+                logger.debug("Message from client {} is too forward", clientData.getClientId());
                 
                 //a too forward message... the client must be malicious
                 accounted = false;
@@ -579,12 +579,12 @@ public class ClientsManager {
      */
     public void requestsOrdered(TOMMessage[] requests) {
         clientsLock.lock();
-        logger.info("Updating client manager");
+//        logger.debug("Updating client manager");
         for (TOMMessage request : requests) {
             requestOrdered(request);
-            logger.info("cancel timer for a request "+request.toString());
+            logger.debug("cancel timer for a request "+request.toString());
         }
-        logger.info("Finished updating client manager");
+//        logger.info("Finished updating client manager");
         clientsLock.unlock();
     }
 

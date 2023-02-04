@@ -5,8 +5,6 @@ This is a Byzantine fault-tolerant state machine replication project named BFT-S
 This package contains the source code (src/), jar file (bin/BFT-SMaRt.jar), dependencies (lib/), documentation (doc/), running scripts (runscripts/), and configuration files (config/) for version 1.2 of the project.
 BFT-SMaRt requires the Java Runtime Environment version 1.8 or later.
 
-try to submit from intellij
-
 ## Quick start
 
 To run any demonstration you first need to configure BFT-SMaRt to define the protocol behavior and the location of each replica.

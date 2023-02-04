@@ -104,13 +104,13 @@ public class RequestsTimer {
     
     /**
      * Creates a timer for the given request
-     * @param request Request to which the timer is being createf for
+     * @param request Request to which the timer is being created for
      */
     public void watch(TOMMessage request) {
         //long startInstant = System.nanoTime();
         rwLock.writeLock().lock();
         watched.add(request);
-        logger.info("activate timer for request " + request.toString() + " in normal phase");
+//        logger.info("activate timer for request " + request.toString() + " in normal phase");
         if (watched.size() >= 1 && enabled) startTimer();
         rwLock.writeLock().unlock();
     }

@@ -237,7 +237,7 @@ public final class BatchReader {
                             exegroup[k] = proposalBuffer.getInt();
                         }
                         tm.setExecutorIds(exegroup);
-                        logger.info("batchReader: decoding request, executor number is {}, executors: {}", exegroup.length, Arrays.toString(tm.getExecutorIds()));
+                        logger.debug("batchReader: decoding request, executor number is {}, executors: {}", exegroup.length, Arrays.toString(tm.getExecutorIds()));
                     }
                     logger.debug("read executor index currently");
                 } catch (Exception e) {
@@ -264,7 +264,7 @@ public final class BatchReader {
                 tm.setToXACMLREEXECUTE();
                 int key1 = proposalBuffer.getInt();
                 int key2 = proposalBuffer.getInt();
-                tm.setReferenceTxId(new TXid(key1, key2));
+                tm.setReferenceTxId(new IdPair(key1, key2));
                 // get executor index, although do nothing now
                 int executornum = proposalBuffer.getInt();
                 if (executornum>0) {
@@ -273,12 +273,12 @@ public final class BatchReader {
                         exegroup[k] = proposalBuffer.getInt();
                     }
                     tm.setExecutorIds(exegroup);
-                    logger.info("decode a re-executed tx {}, executors: {}", tm.getReferenceTxId().toString(), tm.getExecutorIds());
+                    logger.debug("decode a re-executed tx with batchid {}, executors: {}", tm.getReferenceTxId().toString(), tm.getExecutorIds());
                 } else {
                     throw new RuntimeException("Should never reach here! number of executors responsible for this re-executing should be >0!");
                 }
                 reexecutedRequests[i] = tm;
-//                logger.info("decode a re-executed tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
+//                logger.debug("decode a re-executed tx, key1 is "+ key1 + " key2 is " + key2 + " then do nothing...");
             }
 
         }
@@ -293,12 +293,12 @@ public final class BatchReader {
                 tm.setToXACMLRESPONDED();
                 int key1 = proposalBuffer.getInt();
                 int key2 = proposalBuffer.getInt();
-                tm.setReferenceTxId(new TXid(key1, key2));
+                tm.setReferenceTxId(new IdPair(key1, key2));
                 respondedRequests[i] = tm;
-                logger.info("decode a responded tx ({}, {}) ", key1, key2);
+                logger.debug("decode a responded batch ({}, {}) ", key1, key2);
             }
         } else {
-            logger.info("there is no responded message in the block");
+            logger.debug("there is no responded message in the block");
         }
 
 

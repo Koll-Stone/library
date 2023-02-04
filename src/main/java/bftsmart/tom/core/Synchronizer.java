@@ -403,6 +403,12 @@ public class Synchronizer {
         }
 
         logger.debug("I need to relay " + messages.size() + " requests");
+        if (messages.size()==0) {
+            logger.info("reach here, a wrong place");
+//            Thread.dumpStack();
+            System.exit(-1);
+        }
+
 
         return messages;
     }

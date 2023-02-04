@@ -39,7 +39,7 @@ import bftsmart.tom.server.RequestVerifier;
 import bftsmart.tom.util.BatchBuilder;
 import bftsmart.tom.util.BatchReader;
 import bftsmart.tom.util.TOMUtil;
-import bftsmart.tom.util.TXid;
+import bftsmart.tom.util.IdPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,6 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -87,6 +86,8 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     public ClientsManager clientsManager;
 
     public EchoManager echoManager;
+
+    public Set<IdPair> appearedInPropose;
     public PDPBState pdpbstate;
     /**
      * The id of the consensus being executed (or -1 if there is none)
@@ -109,6 +110,9 @@ public final class TOMLayer extends Thread implements RequestReceiver {
     private final Condition haveMessages = messagesLock.newCondition();
     private final ReentrantLock proposeLock = new ReentrantLock();
     private final Condition canPropose = proposeLock.newCondition();
+
+    private final ReentrantLock oprespUpdateLock = new ReentrantLock();
+    private final Condition oprespUpdated = oprespUpdateLock.newCondition();
 
     private final PrivateKey privateKey;
     private final HashMap<Integer, PublicKey> publicKey;
@@ -184,8 +188,12 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
         // I have a verifier, now create clients manager
         this.clientsManager = new ClientsManager(this.controller, requestsTimer, verifier1);
-        this.echoManager = new EchoManager(this.controller.getCurrentViewF()+1);
-        this.pdpbstate = new PDPBState();
+//        logger.info("resp compact size is {}", this.controller.getStaticConf().getRespCompactSize());
+        this.echoManager = new EchoManager(this.controller.getCurrentViewF()+1, this.controller.getStaticConf().getRespCompactSize());
+        this.echoManager.setTomLayer(this);
+        this.appearedInPropose = new HashSet<>();
+        this.pdpbstate = new PDPBState(this.controller.getCurrentViewN(), this.controller.getCurrentViewF(), 10000);
+        this.pdpbstate.setEchoManager(this.echoManager);
         this.bb.setPdpbState(this.pdpbstate);
 
 
@@ -201,7 +209,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
                     if (clientsManager.havePendingRequests() &&
                             (System.currentTimeMillis() - lastRequest) >= controller.getStaticConf().getBatchTimeout()) {
-                        logger.info("Signaling proposer thread!!");
+                        logger.debug("Signaling proposer thread!!");
                         haveMessages();
                     }
                 }
@@ -293,7 +301,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
      */
     public void setInExec(int inEx) {
         proposeLock.lock();
-        logger.info("Modifying inExec from " + this.inExecution + " to " + inEx);
+        logger.debug("Modifying inExec from " + this.inExecution + " to " + inEx);
         this.inExecution = inEx;
         if (inEx == -1 && !isRetrievingState()) {
             canPropose.signalAll();
@@ -416,19 +424,38 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             pendingRequests = clientsManager.getPendingRequests();
         }
 
-        logger.info("Number of pending requests to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
+        logger.debug("Number of pending requests to propose in consensus {}: {}", dec.getConsensusId(), pendingRequests.size());
         int numberOfMessages = pendingRequests.size(); // number of messages retrieved
         int numberOfNonces = this.controller.getStaticConf().getNumberOfNonces(); // ammount of nonces to be generated
 
 
 
-        List<TXid> oprespList = echoManager.getOpRespList();
-        List<TXid> opunrespList = pdpbstate.getOpUnrespList();
+        List<IdPair> oprespList = echoManager.getOpRespList(800);
+        for (IdPair ip: oprespList) {
+            if (this.appearedInPropose.contains(ip)) {
+             logger.debug("batch {} has been proposed in the past, remove it", ip.toString());
+            }
+        }
+        oprespList.removeAll(this.appearedInPropose);
+        this.appearedInPropose.addAll(oprespList); // remove all opresp that have been put in past blocks
+
+        List<IdPair> opunrespList = pdpbstate.getOpUnrespList();
         opunrespList.removeAll(oprespList);    // opunrespList = opunrespList - oprespList
         if(dec.getConsensusId() % this.controller.getStaticConf().getCheckpointPeriod()==0) {
+
             opunrespList = pdpbstate.getWatchedList();
+            logger.info("add all {} unresponded batches at checkpoint block, but some of them might be removed later, checkpoint period is {}",
+                    opunrespList.size(), this.controller.getStaticConf().getCheckpointPeriod());
             opunrespList.removeAll(oprespList);
         }
+//        Collections.sort(list, Comparator.comparingInt(ActiveAlarm ::getterMethod));
+        Collections.sort(opunrespList, Comparator.comparingInt(IdPair::getX)); // sort all rex batch by block
+        if (opunrespList.size()>0) {
+            String res = "";
+            for (IdPair bid: opunrespList) res += bid.toString() + ", ";
+            logger.info("rex batch: {}", res);
+        }
+
 
         int[] allExecutors = new int[controller.getCurrentViewN()];
         for (int i=0; i<controller.getCurrentViewN(); i++) allExecutors[i] = i;
@@ -438,8 +465,15 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
 
 
-        logger.info("Creating a PROPOSE for CI " + dec.getConsensusId() + " with " + numberOfMessages + " txs, " + oprespList.size() + " response indicators, "+
+        logger.debug("Creating a PROPOSE for CI " + dec.getConsensusId() + " with " + numberOfMessages + " txs, " + oprespList.size() + " response indicators, "+
                 opunrespList.size() + " unresponse indicators ");
+        for (IdPair bid: oprespList) {
+            logger.debug("PROPOSE for CI {}, response indicators: {}", dec.getConsensusId(), bid.toString());
+        }
+        for (IdPair bid: opunrespList) {
+            logger.debug("PROPOSE for CI {}, rex indicators: {}", dec.getConsensusId(), bid.toString());
+        }
+
 //        oprespList.clear();
 
         //for benchmarking
@@ -452,7 +486,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         dec.batchSize = numberOfMessages;
 
         return bb.makeBatchForPropose(pendingRequests, opunrespList, oprespList, numberOfNonces, System.currentTimeMillis(),
-                controller.getStaticConf().getUseSignatures() == 1, controller.getCurrentViewF());
+                controller.getStaticConf().getUseSignatures() == 1, controller.getCurrentViewF(), dec.getConsensusId());
     }
 
     /**
@@ -477,7 +511,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
 
             // blocks until this replica learns to be the leader for the current epoch of the current consensus
             leaderLock.lock();
-            logger.info("Next leader for CID=" + (getLastExec() + 1) + ": " + execManager.getCurrentLeader());
+            logger.debug("Next leader for CID=" + (getLastExec() + 1) + ": " + execManager.getCurrentLeader());
 
             //******* EDUARDO BEGIN **************//
             if (execManager.getCurrentLeader() != this.controller.getStaticConf().getProcessId()) {
@@ -493,14 +527,14 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             proposeLock.lock();
 
             if (getInExec() != -1) { //there is some consensus running
-                logger.info("Waiting for consensus " + getInExec() + " termination.");
+                logger.debug("Waiting for consensus " + getInExec() + " termination.");
                 canPropose.awaitUninterruptibly();
             }
             proposeLock.unlock();
 
             if (!doWork) break;
 
-            logger.info("I'm the leader.");
+            logger.debug("I'm the leader.");
 
             // blocks until there are requests to be processed/ordered
             messagesLock.lock();
@@ -508,15 +542,15 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                     (controller.getStaticConf().getBatchTimeout() > -1
                             && !clientsManager.isNextBatchReady())) {
 
-                logger.info("Waiting for enough requests");
+                logger.debug("Waiting for enough requests");
                 haveMessages.awaitUninterruptibly();
-                logger.info("Got enough requests");
+                logger.debug("Got enough requests");
             }
             messagesLock.unlock();
 
             if (!doWork) break;
 
-            logger.info("There are requests to be ordered. I will propose.");
+            logger.debug("There are requests to be ordered. I will propose.");
 
 
             if ((execManager.getCurrentLeader() == this.controller.getStaticConf().getProcessId()) && //I'm the leader
@@ -550,12 +584,12 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                     continue;
 
                 }
-                try {
-                    TimeUnit.MILLISECONDS.sleep(200);
-                    // todo, delete this!
-                } catch (InterruptedException e) {
-                    logger.warn("cannot sleep");
-                }
+//                try {
+//                    TimeUnit.MILLISECONDS.sleep(200);
+//                    // todo, delete this!
+//                } catch (InterruptedException e) {
+//                    logger.warn("cannot sleep");
+//                }
                 execManager.getProposer().startConsensus(execId, createPropose(dec));
             }
         }
@@ -608,7 +642,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
             }
             TOMMessage[] requests = tmp.toArray(new TOMMessage[tmp.size()]);
 
-            logger.info("requests in propose msg are deserialised: there are "+requests.length+" requests in total");
+            logger.debug("requests in propose msg are deserialised: there are "+requests.length+" requests in total");
 
             if (addToClientManager) {
 
@@ -642,7 +676,7 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                             latch.countDown();
                         });
                     } else {
-                        logger.info("skip XACML_REX msg and XACML_RESP msg");
+                        logger.debug("skip XACML_REX msg and XACML_RESP msg");
                     }
 
                 }
@@ -656,20 +690,25 @@ public final class TOMLayer extends Thread implements RequestReceiver {
                             return null;
                         }
                     } else if (request.getXType()==XACMLType.XACML_RESPONDED) {
-                        if (!echoManager.checkResponded(request.getReferenceTxId())) {
-                            logger.info("I do not agree with the leader " + request.getReferenceTxId().toString() + " is responded");
-                            return null;
+                        while(true) {
+                            if (!echoManager.checkResponded(request.getReferenceTxId())) {
+                                logger.info("I do not agree with the leader batch" + request.getReferenceTxId().toString() + " is responded, wait...");
+                                oprespUpdated.awaitUninterruptibly();
+                            } else {
+                                break;
+                            }
                         }
+
                     }
                 }
             }
 
-            logger.info("Successfully deserialized batch");
+//            logger.info("Successfully deserialized batch");
 
             return allRequests;
 
         } catch (Exception e) {
-            logger.error("Failed to check proposed value",e);
+            logger.info("Failed to check proposed value", e);
             if (Thread.holdsLock(clientsManager.getClientsLock())) clientsManager.getClientsLock().unlock();
 
             return null;
@@ -748,5 +787,11 @@ public final class TOMLayer extends Thread implements RequestReceiver {
         if (this.dt != null) this.dt.shutdown();
         if (this.communication != null) this.communication.shutdown();
 
+    }
+
+    public void oprespIsUpdated() {
+        oprespUpdateLock.lock();
+        oprespUpdated.signal();
+        oprespUpdateLock.unlock();
     }
 }
